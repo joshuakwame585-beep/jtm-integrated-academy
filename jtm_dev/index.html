@@ -1,274 +1,67 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="JTM Digital Academy learning portal">
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="JOSH TECH MEDIA (JTM) provides practical digital services and beginner-friendly technology learning through JTM Digital Academy.">
   <meta name="theme-color" content="#081426">
-  <title>JTM Digital Academy | JOSH TECH MEDIA</title>
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="lms.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js"></script>
+  <title>JOSH TECH MEDIA | Technology & Digital Academy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-<header class="topbar">
-  <a class="brand" href="index.html">
-    <img src="assets/josh-tech-media-logo.png" alt="JTM logo">
-    <span>JOSH TECH MEDIA<small>DIGITAL ACADEMY</small></span>
-  </a>
-
-  <div class="top-actions">
-    <a href="index.html" class="backlink">← Main website</a>
-    <span id="connectionStatus" class="status-pill">Checking connection…</span>
+<a class="skip-link" href="#main-content">Skip to content</a><div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
+<header class="site-header"><nav class="nav container" aria-label="Main navigation">
+  <a class="brand" href="#home" aria-label="JOSH TECH MEDIA home"><img src="assets/josh-tech-media-logo.png" alt="JOSH TECH MEDIA logo"></a>
+  <button class="menu-toggle" id="menuToggle" aria-label="Open navigation" aria-expanded="false"><span></span><span></span><span></span></button>
+  <div class="nav-links" id="navLinks"><a href="#home">Home</a><a href="#about">About</a><a href="#services">Services</a><a href="#work">Our Work</a><a href="#academy">Academy</a><a href="#courses">Courses</a><a href="lms.html">Academy Portal</a><a class="nav-cta" href="#contact">Contact <span>↗</span></a></div>
+</nav></header>
+<main id="main-content">
+<section class="hero section" id="home"><div class="container hero-grid">
+  <div class="hero-copy"><p class="eyebrow"><span class="eyebrow-line"></span> TECHNOLOGY · CREATIVITY · EDUCATION</p>
+    <h1>Technology that helps you <span>move forward.</span></h1>
+    <p class="hero-intro"><strong>JOSH TECH MEDIA (JTM)</strong> is a growing technology and digital learning brand. We make technology easier to understand and help people build useful digital skills, one step at a time.</p>
+    <div class="hero-actions"><a class="button button-primary" href="#academy">Explore the Academy <span>↗</span></a><a class="text-link" href="#services">Our services <span>↓</span></a></div>
+    <div class="hero-note"><span class="status-dot"></span> Practical learning. Creative solutions. Continuous growth.</div>
   </div>
-</header>
+  <div class="hero-visual"><div class="hero-logo-card"><img src="assets/josh-tech-media-logo.png" alt="JTM brand emblem"><span>JOSH TECH MEDIA</span><small>TECHNOLOGY · INNOVATION · EDUCATION</small></div><div class="floating-tag"><span class="tag-icon">&lt;/&gt;</span><span><strong>Learn</strong><small>Build with confidence</small></span></div><div class="visual-orbit orbit-one"></div><div class="visual-orbit orbit-two"></div></div>
+</div><div class="hero-bottom container"><span>01 / WELCOME</span><span class="scroll-label">SCROLL TO EXPLORE ↓</span><span>GHANA · DIGITAL FUTURE</span></div></section>
 
-<main class="wrap">
+<section class="section about-section" id="about"><div class="container two-col"><div><p class="eyebrow">02 / WHO WE ARE</p><h2>Making digital skills <span class="accent-text">more accessible.</span></h2></div><div class="about-copy"><p class="lead">JTM brings technology services and digital education together under one brand.</p><p>We believe people should have a welcoming place to explore technology, understand the basics and develop practical skills. Whether you are a complete beginner, a student or someone building new abilities, learning can start with one clear step.</p><p>JTM is growing. Our focus is on useful projects, clear learning resources and responsible use of technology.</p><a class="text-link dark-link" href="#academy">Discover JTM Digital Academy <span>↗</span></a></div></div></section>
 
-  <section id="welcome" class="welcome">
-    <div>
-      <p class="eyebrow">JTM DIGITAL ACADEMY</p>
-      <h1>Learn. Practise. <span>Grow.</span></h1>
-      <p>Explore practical courses, follow lessons at your pace and build useful digital skills.</p>
-    </div>
-    <div class="welcome-mark">JTM<span>+</span></div>
-  </section>
+<section class="section services-section" id="services"><div class="container"><div class="section-heading"><div><p class="eyebrow">03 / PORTFOLIO & DIGITAL SERVICES</p><h2>Creative skills. <span class="accent-text">Practical solutions.</span></h2></div><p class="section-intro">Explore JTM’s digital service areas, from AI-powered media and professional documents to websites, design and productivity support.</p></div>
+<div class="service-grid service-grid-expanded">
+<article class="service-card"><div class="service-icon">▶</div><p class="card-kicker">AI & DIGITAL MEDIA</p><h3>AI Video & Content Creation</h3><p>Creative digital media for individuals, creators and small organisations, using AI-assisted tools and editing workflows.</p><ul><li>AI-generated video concepts</li><li>Short promotional and social videos</li><li>Video editing and captions</li><li>AI-generated visual content</li></ul><a class="text-link dark-link" href="#contact" data-service="AI Video & Content Creation">Enquire about this service <span>↗</span></a></article>
+<article class="service-card"><div class="service-icon">▤</div><p class="card-kicker">DOCUMENT & WRITING SUPPORT</p><h3>Document Editing & CV Services</h3><p>Clear, well-formatted documents for job applications, business communication and everyday professional use.</p><ul><li>CV and résumé writing support</li><li>Document editing and formatting</li><li>Letters, reports and proposals</li><li>PDF conversion and organisation</li></ul><a class="text-link dark-link" href="#contact" data-service="Document Editing & CV Services">Enquire about this service <span>↗</span></a></article>
+<article class="service-card"><div class="service-icon">▦</div><p class="card-kicker">OFFICE & PRODUCTIVITY</p><h3>Microsoft Office Support</h3><p>Practical help creating, improving and organising common office files and presentations.</p><ul><li>Microsoft Word documents</li><li>Excel spreadsheets and data tables</li><li>PowerPoint presentations</li><li>File formatting and data entry</li></ul><a class="text-link dark-link" href="#contact" data-service="Microsoft Office Support">Enquire about this service <span>↗</span></a></article>
+<article class="service-card"><div class="service-icon">&lt;/&gt;</div><p class="card-kicker">WEB DESIGN & DEVELOPMENT</p><h3>Websites & Web Pages</h3><p>Modern, responsive web experiences for personal brands, projects and small businesses.</p><ul><li>Portfolio and business websites</li><li>Landing pages and web pages</li><li>Responsive layouts</li><li>Basic website updates</li></ul><a class="text-link dark-link" href="#contact" data-service="Web Design & Development">Enquire about this service <span>↗</span></a></article>
+<article class="service-card"><div class="service-icon">✳</div><p class="card-kicker">GRAPHIC DESIGN & BRANDING</p><h3>Visual Design & Branding</h3><p>Consistent visual materials to help communicate an idea, event, service or brand.</p><ul><li>Flyers, posters and banners</li><li>Social media graphics</li><li>Logo and brand concepts</li><li>Digital promotional designs</li></ul><a class="text-link dark-link" href="#contact" data-service="Graphic Design & Branding">Enquire about this service <span>↗</span></a></article>
+<article class="service-card service-card-dark"><div class="service-icon">⌘</div><p class="card-kicker">DIGITAL SUPPORT</p><h3>File & Computer Assistance</h3><p>Helpful support with common digital tasks, file handling and everyday computer productivity.</p><ul><li>File conversion and organisation</li><li>Basic computer and software guidance</li><li>Document and folder management</li><li>Digital skills assistance</li></ul><a class="button button-light" href="#contact" data-service="File & Computer Assistance">Discuss a project <span>↗</span></a></article>
+</div><p class="portfolio-note">Portfolio tip: add screenshots, short video previews and sample files from your own completed work to demonstrate each service. Only display work you created or have permission to share.</p></div></section>
 
-  <!-- ONE LOGIN PAGE FOR STUDENTS AND ADMIN -->
-  <section id="authPanel" class="auth-panel panel">
-    <div>
-      <p class="eyebrow">STUDENT &amp; ADMIN ACCESS</p>
-      <h2>Sign in to your learning space</h2>
-      <p class="muted">
-        Sign in to access your dashboard. New students can create an account here.
-      </p>
-    </div>
+<section class="section work-section" id="work"><div class="container"><div class="section-heading"><div><p class="eyebrow">04 / SELECTED WORK</p><h2>Ideas in progress. <span class="accent-text">Projects with purpose.</span></h2></div><p class="section-intro">A growing collection of creative and technical work. Featured previews will be added as projects are completed and approved for sharing.</p></div><div class="work-grid"><article class="work-card work-card-featured"><div class="work-art art-video"><span class="art-orbit"></span><span class="art-play">▶</span><span class="art-label">AI · VIDEO · STORY</span></div><div class="work-card-copy"><div class="work-meta"><span>01 / DIGITAL MEDIA</span><span class="work-status">PREVIEW COMING SOON</span></div><h3>AI Video & Visual Stories</h3><p>Short-form video concepts, creative visuals and editing experiments.</p></div></article><article class="work-card"><div class="work-art art-doc"><span class="doc-sheet"><i></i><i></i><i></i><b></b></span><span class="art-label">DOCUMENT · OFFICE</span></div><div class="work-card-copy"><div class="work-meta"><span>02 / PRODUCTIVITY</span><span class="work-status">IN DEVELOPMENT</span></div><h3>Documents & Presentations</h3><p>Neat document layouts, useful spreadsheets and clear presentations.</p></div></article><article class="work-card"><div class="work-art art-web"><span class="web-window"><i></i><i></i><i></i><b></b><em></em></span><span class="art-label">WEB · DESIGN · BRAND</span></div><div class="work-card-copy"><div class="work-meta"><span>03 / WEB & DESIGN</span><span class="work-status">IN DEVELOPMENT</span></div><h3>Web & Visual Design</h3><p>Website layouts and graphic concepts created for digital experiences.</p></div></article></div><p class="portfolio-note">These are portfolio categories, not claims of completed client projects. Real project previews will replace these placeholders as work is ready to show.</p></div></section>
 
-    <form id="authForm" class="auth-form">
-      <label>Email address
-        <input id="authEmail" type="email" autocomplete="username"
-          placeholder="you@example.com" required>
-      </label>
+<section class="section academy-section" id="academy"><div class="container academy-panel"><div><p class="eyebrow">04 / JTM DIGITAL ACADEMY</p><h2>Start where you are.<br><span>Grow your digital skills.</span></h2><p>Our academy is being developed for everyone, especially beginners and students. Start with the fundamentals, practise what you learn and build confidence as you progress.</p><div class="academy-points"><span>✓ Clear explanations</span><span>✓ Beginner-friendly topics</span><span>✓ Practical learning approach</span></div></div><div class="academy-side"><span class="academy-icon">✦</span><h3>Learning for every starting point</h3><p>Choose a free introduction or explore our planned premium learning pathways.</p><a class="button button-light" href="lms.html">Enter the Academy Portal <span>↗</span></a></div></div></section>
 
-      <label>Password
-        <input id="authPassword" type="password"
-          autocomplete="current-password" minlength="6"
-          placeholder="At least 6 characters" required>
-      </label>
+<section class="section courses-section" id="courses"><div class="container"><div class="section-heading"><div><p class="eyebrow">05 / EXPLORE LEARNING</p><h2>Choose your <span class="accent-text">starting point.</span></h2></div><p class="section-intro">The first course catalogue is a preview. Course lessons and enrolment will be introduced in stages.</p></div>
+<div class="course-filter" role="group" aria-label="Filter courses"><button class="filter-btn active" data-filter="all">All courses</button><button class="filter-btn" data-filter="free">Free</button><button class="filter-btn" data-filter="premium">Premium</button></div>
+<div class="course-grid" id="courseGrid">
+<article class="course-card" data-type="free"><div class="course-top"><span class="course-category">COMPUTER BASICS</span><span class="course-badge free-badge">FREE</span></div><div class="course-symbol">▦</div><h3>Introduction to Computers</h3><p>Understand computer parts, common devices, software and everyday computer use.</p><div class="course-meta"><span>Beginner</span><span>Self-paced · Planned</span></div><a class="course-link" href="lms.html">Open course portal <span>↗</span></a></article>
+<article class="course-card" data-type="free"><div class="course-top"><span class="course-category">DIGITAL FOUNDATIONS</span><span class="course-badge free-badge">FREE</span></div><div class="course-symbol">◎</div><h3>Digital Literacy Essentials</h3><p>Learn to use devices, the internet and digital information safely and effectively.</p><div class="course-meta"><span>Beginner</span><span>Self-paced · Planned</span></div><a class="course-link" href="lms.html">Open course portal <span>↗</span></a></article>
+<article class="course-card" data-type="free"><div class="course-top"><span class="course-category">CYBER AWARENESS</span><span class="course-badge free-badge">FREE</span></div><div class="course-symbol">⌑</div><h3>Introduction to Cybersecurity</h3><p>Explore online safety, common cyber threats, passwords and responsible digital habits.</p><div class="course-meta"><span>Beginner</span><span>Self-paced · Planned</span></div><a class="course-link" href="lms.html">Open course portal <span>↗</span></a></article>
+<article class="course-card" data-type="premium"><div class="course-top"><span class="course-category">WEB DEVELOPMENT</span><span class="course-badge premium-badge">PREMIUM · PLANNED</span></div><div class="course-symbol">&lt;/&gt;</div><h3>Build Your First Website</h3><p>Follow a structured introduction to HTML, CSS and the foundations of JavaScript.</p><div class="course-meta"><span>Beginner</span><span>Guided pathway · Planned</span></div><a class="course-link" href="lms.html">View premium course <span>↗</span></a></article>
+<article class="course-card" data-type="premium"><div class="course-top"><span class="course-category">PROGRAMMING</span><span class="course-badge premium-badge">PREMIUM · PLANNED</span></div><div class="course-symbol">{ }</div><h3>Python Programming Basics</h3><p>Get introduced to variables, data types, conditions, loops and small practice projects.</p><div class="course-meta"><span>Beginner</span><span>Guided pathway · Planned</span></div><a class="course-link" href="lms.html">View premium course <span>↗</span></a></article>
+<article class="course-card" data-type="premium"><div class="course-top"><span class="course-category">CREATIVE DIGITAL SKILLS</span><span class="course-badge premium-badge">PREMIUM · PLANNED</span></div><div class="course-symbol">✳</div><h3>Graphic Design Fundamentals</h3><p>Learn visual communication, layout, colour and the basics of creating digital designs.</p><div class="course-meta"><span>Beginner</span><span>Guided pathway · Planned</span></div><a class="course-link" href="lms.html">View premium course <span>↗</span></a></article>
+</div><p class="course-disclaimer">Course listings are a preview, not an open enrolment or payment offer. We will publish lesson access, schedules and any premium fees when each course is ready.</p></div></section>
 
-      <div class="auth-buttons">
-        <button class="btn primary" type="submit" id="signInBtn">
-          Sign in
-        </button>
+<section class="section founder-section"><div class="container founder-grid"><div class="founder-photo"><img src="assets/joshua-profile.png" alt="Portrait of JTM founder Joshua Kwame"></div><div><p class="eyebrow">06 / THE FOUNDER</p><h2>Built with curiosity.<br><span class="accent-text">Growing through learning.</span></h2><p class="lead">JTM was founded by Joshua Kwame, a student and technology enthusiast interested in digital skills, web development and cybersecurity.</p><p>The goal is to keep learning, create useful digital projects and make technology knowledge easier for others to explore.</p><div class="credentials-panel"><span class="credentials-icon">✦</span><div><strong>Learning & Certificates</strong><p>As JTM grows, this space will highlight relevant courses completed, skills developed and certificates genuinely earned.</p><span class="credentials-status">CERTIFICATES WILL BE ADDED AS EARNED</span></div></div></div></div></section>
 
-        <button class="btn secondary" type="button" id="signUpBtn">
-          Create student account
-        </button>
-      </div>
-
-      <p id="authMessage" class="message" aria-live="polite"></p>
-    </form>
-  </section>
-
-  <!-- DASHBOARD -->
-  <section id="appPanel" hidden>
-
-    <div class="dash-head">
-      <div>
-        <p class="eyebrow" id="dashEyebrow">YOUR LEARNING</p>
-        <h2 id="dashTitle">Student dashboard</h2>
-        <p class="muted" id="dashSubtitle"></p>
-      </div>
-
-      <div class="dash-actions">
-        <button class="btn secondary" id="refreshBtn" type="button">
-          Refresh
-        </button>
-        <button class="btn secondary" id="signOutBtn" type="button">
-          Sign out
-        </button>
-      </div>
-    </div>
-
-    <nav class="tabs" id="tabs">
-      <button class="tab active" data-tab="overview" type="button">Overview</button>
-      <button class="tab" data-tab="catalogue" type="button">Course catalogue</button>
-      <button class="tab" data-tab="mycourses" type="button">My learning</button>
-
-      <button class="tab admin-only" data-tab="manage"
-        type="button" hidden>Manage courses</button>
-
-      <button class="tab admin-only" data-tab="students"
-        type="button" hidden>Students</button>
-    </nav>
-
-    <!-- OVERVIEW -->
-    <section class="tab-content" id="tab-overview">
-      <div class="stats" id="stats"></div>
-
-      <div class="content-grid">
-        <div class="panel">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">KEEP GOING</p>
-              <h3>Continue learning</h3>
-            </div>
-            <button class="text-btn" data-goto="mycourses" type="button">
-              View all →
-            </button>
-          </div>
-
-          <div id="continueList" class="course-list"></div>
-        </div>
-
-        <aside class="panel tip-panel">
-          <div class="tip-icon">✦</div>
-          <h3>Your learning journey</h3>
-          <p>
-            Work through each lesson, complete the available practice
-            and keep building your skills one topic at a time.
-          </p>
-          <div class="tip-foot">
-            JTM · TECHNOLOGY · INNOVATION · EDUCATION
-          </div>
-        </aside>
-      </div>
-    </section>
-
-    <!-- COURSE CATALOGUE -->
-    <section class="tab-content" id="tab-catalogue" hidden>
-      <div class="section-title">
-        <div>
-          <p class="eyebrow">EXPLORE</p>
-          <h3>Available courses</h3>
-        </div>
-
-        <div class="filters">
-          <button class="filter active" data-course-filter="all" type="button">All</button>
-          <button class="filter" data-course-filter="free" type="button">Free</button>
-          <button class="filter" data-course-filter="premium" type="button">Premium</button>
-        </div>
-      </div>
-
-      <div id="catalogueGrid" class="course-grid"></div>
-    </section>
-
-    <!-- MY LEARNING -->
-    <section class="tab-content" id="tab-mycourses" hidden>
-      <div class="section-title">
-        <div>
-          <p class="eyebrow">YOUR PROGRESS</p>
-          <h3>My learning</h3>
-        </div>
-      </div>
-
-      <div id="myCourseGrid" class="course-grid"></div>
-    </section>
-
-    <!-- ADMIN COURSE MANAGEMENT -->
-    <section class="tab-content" id="tab-manage" hidden>
-      <div class="content-grid admin-grid">
-
-        <div class="panel">
-          <p class="eyebrow">COURSE BUILDER</p>
-          <h3>Create a course</h3>
-
-          <form id="courseForm" class="stack-form">
-            <label>Course title
-              <input name="title" required maxlength="140"
-                placeholder="e.g. Cybersecurity Foundations">
-            </label>
-
-            <label>Short description
-              <textarea name="description" rows="3" required
-                maxlength="1200" placeholder="What will students learn?"></textarea>
-            </label>
-
-            <div class="two-fields">
-              <label>Access
-                <select name="access">
-                  <option value="free">Free</option>
-                  <option value="premium">Premium</option>
-                </select>
-              </label>
-
-              <label>Level
-                <select name="level">
-                  <option>Beginner</option>
-                  <option>Intermediate</option>
-                  <option>Advanced</option>
-                </select>
-              </label>
-            </div>
-
-            <label>Category
-              <input name="category" maxlength="80"
-                placeholder="e.g. Cybersecurity">
-            </label>
-
-            <label>Price (GHS, display only while payments are disabled)
-              <input name="price" type="number" min="0"
-                step="0.01" value="0">
-            </label>
-
-            <label class="checkline">
-              <input name="published" type="checkbox">
-              Publish course in catalogue
-            </label>
-
-            <button class="btn primary" type="submit">
-              Create course
-            </button>
-
-            <p class="message" id="courseMessage" aria-live="polite"></p>
-          </form>
-        </div>
-
-        <div class="panel">
-          <p class="eyebrow">CONTENT MANAGEMENT</p>
-          <h3>Your courses</h3>
-          <p class="muted">
-            Select a course to add modules and lessons or change its publication status.
-          </p>
-          <div id="adminCourseList" class="admin-course-list"></div>
-        </div>
-      </div>
-
-      <div id="courseEditor" class="panel editor-panel" hidden></div>
-    </section>
-
-    <!-- ADMIN STUDENT RECORDS -->
-    <section class="tab-content" id="tab-students" hidden>
-      <div class="panel">
-        <p class="eyebrow">ACADEMY ADMINISTRATION</p>
-        <h3>Student records</h3>
-        <p class="muted">
-          Student profiles and enrolments are shown here.
-        </p>
-        <div id="studentTable" class="table-wrap"></div>
-      </div>
-    </section>
-
-  </section>
-
-  <!-- LESSON VIEW -->
-  <section id="lessonView" class="panel lesson-view" hidden></section>
-
+<section class="section contact-section" id="contact"><div class="container contact-grid"><div><p class="eyebrow">07 / GET IN TOUCH</p><h2>Have a question?<br><span class="accent-text">Contact JTM.</span></h2><p class="section-intro">Ask about our services, suggest a course or register your interest in future learning opportunities.</p></div><div class="contact-right"><div class="contact-details">
+<a class="contact-detail" href="mailto:kwamejoshua703@gmail.com"><span class="contact-icon">✉</span><span><small>EMAIL</small><strong>kwamejoshua703@gmail.com</strong></span></a>
+<a class="contact-detail" href="https://wa.me/233534237714" target="_blank" rel="noopener noreferrer"><span class="contact-icon">◉</span><span><small>WHATSAPP</small><strong>+233 53 423 7714</strong></span></a>
+<a class="contact-detail" href="https://wa.me/233201460579" target="_blank" rel="noopener noreferrer"><span class="contact-icon">◉</span><span><small>WHATSAPP</small><strong>+233 20 146 0579</strong></span></a>
+</div><form class="contact-form" id="contactForm"><label for="visitorName">Your name</label><input id="visitorName" name="name" type="text" placeholder="Enter your name" required><label for="visitorEmail">Your email</label><input id="visitorEmail" name="email" type="email" placeholder="Enter your email" required><label for="visitorMessage">How can we help?</label><textarea id="visitorMessage" name="message" rows="4" placeholder="Write your message..." required></textarea><button class="button button-primary" type="submit">Prepare email <span>↗</span></button><p class="form-hint" id="formHint">This form opens your email app; it does not store or submit personal information on this website.</p></form></div></div></section>
 </main>
-
-<div id="toast" class="toast" role="status" aria-live="polite"></div>
-
-<footer class="portal-footer">
-  <span>© <span id="year"></span> JOSH TECH MEDIA</span>
-  <span>Learn responsibly · Keep practising</span>
-</footer>
-
-<script src="lms.js"></script>
-</body>
-</html>
+<footer class="footer"><div class="container footer-inner"><strong class="footer-brand">JOSH TECH MEDIA <span>· JTM</span></strong><span>Technology · Innovation · Education</span><small>© <span id="year"></span> JOSH TECH MEDIA. All rights reserved.</small></div></footer>
+<script src="script.js"></script>
+</body></html>
