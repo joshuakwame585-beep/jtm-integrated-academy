@@ -1,102 +1,274 @@
-/* JTM Academy portal. Demo mode uses this browser only. Configure Supabase for real multi-user use. */
-(() => {
-'use strict';
-const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const cfg=window.JTM_CONFIG||{};const configured=!!(cfg.SUPABASE_URL&&cfg.SUPABASE_ANON_KEY&&!cfg.SUPABASE_URL.includes('YOUR-'));
-const sb=configured&&window.supabase?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY):null;
-const STORE='jtm_lms_demo_v1';let state={role:'student',user:null,courses:[],enrollments:[],activeCourse:null,activeLesson:null,filter:'all',demo:false};
-const starter=()=>({courses:[
-{id:'c1',title:'Introduction to Computers',description:'Understand computer parts, common devices, software and everyday computer use.',access:'free',level:'Beginner',category:'Computer Basics',price:0,published:true,modules:[{id:'m1',title:'Getting started with computers',lessons:[{id:'l1',title:'What is a computer?',body:'A computer is an electronic device that accepts data, processes it according to instructions, stores information and produces results. Computers are used for learning, communication, creativity and many everyday tasks.',video_url:'',resource_url:'',duration:'8 min'},{id:'l2',title:'Common types of computers',body:'Desktop computers, laptops, tablets and smartphones are common computing devices. Each type has features suited to different activities.',video_url:'',resource_url:'',duration:'7 min'}]},{id:'m2',title:'Hardware and software',lessons:[{id:'l3',title:'Understanding hardware and software',body:'Hardware refers to the physical parts of a computer. Software is the set of programs and instructions that tell hardware what to do.',video_url:'',resource_url:'',duration:'10 min'}]}],quiz:[{id:'q1',question:'Which one is computer hardware?',options:['Keyboard','Web browser','Operating system','Word processor'],answer:0}]},
-{id:'c2',title:'Digital Literacy Essentials',description:'Use devices, the internet and digital information safely and effectively.',access:'free',level:'Beginner',category:'Digital Foundations',price:0,published:true,modules:[{id:'m2a',title:'Digital foundations',lessons:[{id:'l2a',title:'What is digital literacy?',body:'Digital literacy is the ability to use digital devices, networks and information services safely, effectively and thoughtfully.',video_url:'',resource_url:'',duration:'8 min'}]}],quiz:[{id:'q2',question:'Which is a good digital safety habit?',options:['Share passwords','Use strong unique passwords','Open every attachment','Ignore updates'],answer:1}]},
-{id:'c3',title:'Introduction to Cybersecurity',description:'Explore online safety, common cyber threats, passwords and responsible digital habits.',access:'free',level:'Beginner',category:'Cyber Awareness',price:0,published:true,modules:[{id:'m3a',title:'Cybersecurity basics',lessons:[{id:'l3a',title:'What is cybersecurity?',body:'Cybersecurity is the practice of protecting computers, networks, systems and information from attacks, damage and unauthorised access.',video_url:'',resource_url:'',duration:'9 min'},{id:'l3b',title:'Threats and vulnerabilities',body:'A threat is something that could cause harm. A vulnerability is a weakness that could be exploited. Understanding both helps people reduce risk.',video_url:'',resource_url:'',duration:'9 min'}]}],quiz:[{id:'q3',question:'What is a vulnerability?',options:['A system weakness','A strong password','A backup copy','A security policy'],answer:0}]},
-{id:'c4',title:'Build Your First Website',description:'Learn the foundations of HTML, CSS and JavaScript by creating a simple web page.',access:'premium',level:'Beginner',category:'Web Development',price:100,published:true,modules:[],quiz:[]},
-{id:'c5',title:'Python Programming Basics',description:'Get introduced to variables, data types, conditions, loops and small practice projects.',access:'premium',level:'Beginner',category:'Programming',price:120,published:true,modules:[],quiz:[]},
-{id:'c6',title:'Graphic Design Fundamentals',description:'Learn visual communication, layout, colour and the basics of creating digital designs.',access:'premium',level:'Beginner',category:'Creative Digital Skills',price:90,published:true,modules:[],quiz:[]}
-],enrollments:[],progress:{},users:[]});
-function readDemo(){try{return JSON.parse(localStorage.getItem(STORE))||starter()}catch{return starter()}}
-function saveDemo(d){localStorage.setItem(STORE,JSON.stringify(d))}
-let demoData=readDemo();
-function toast(s){const t=$('#toast');t.textContent=s;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
-function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function id(){return 'id_'+Math.random().toString(36).slice(2,10)}
-function isPremium(c){return c.access==='premium'}
-function getProgress(courseId){if(state.demo)return demoData.progress[courseId]||[];return state.enrollments.find(e=>e.course_id===courseId)?.completed_lessons||[]}
-function isEnrolled(c){return state.enrollments.some(e=>(e.course_id||e.id)===c.id)}
-function allLessons(c){return (c.modules||[]).flatMap(m=>m.lessons||[])}
-function completed(c){return getProgress(c.id).length}
-function pct(c){const total=allLessons(c).length;return total?Math.min(100,Math.round(completed(c)/total*100)):0}
-function showTab(tab){$$('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.tab-content').forEach(x=>x.hidden=x.id!=='tab-'+tab);$('#lessonView').hidden=true;if(tab==='overview')renderOverview();if(tab==='catalogue')renderCatalogue();if(tab==='mycourses')renderMyCourses();if(tab==='manage')renderAdmin();if(tab==='students')renderStudents()}
-function openApp(role,user,demo=false){state.role=role;state.user=user;state.demo=demo;$('#authPanel').hidden=true;$('#appPanel').hidden=false;$('#welcome').hidden=true;$('#dashTitle').textContent=role==='admin'?'Admin dashboard':'Student dashboard';$('#dashEyebrow').textContent=role==='admin'?'ACADEMY MANAGEMENT':'YOUR LEARNING';$('#dashSubtitle').textContent=role==='admin'?'Create courses, publish lessons and manage learning content.':'Continue learning where you left off.';$$('.admin-only').forEach(x=>x.hidden=role!=='admin');$('#switchRole').hidden=!demo;$('#connectionStatus').textContent=demo?'Demo preview': 'Supabase connected';showTab('overview')}
-function closeApp(){state.user=null;state.demo=false;$('#appPanel').hidden=true;$('#authPanel').hidden=false;$('#welcome').hidden=false;$('#lessonView').hidden=true;$('#connectionStatus').textContent=configured?'Supabase ready':'Demo preview'}
-function renderOverview(){const visible=state.courses.filter(c=>c.published||state.role==='admin');const mine=state.role==='admin'?visible:visible.filter(c=>!isPremium(c)||isEnrolled(c));const done=mine.filter(c=>pct(c)===100&&allLessons(c).length).length;$('#stats').innerHTML=`<div class="stat"><span>${state.role==='admin'?'Published courses':'Available courses'}</span><strong>${visible.length}</strong></div><div class="stat"><span>${state.role==='admin'?'Total lessons':'Lessons completed'}</span><strong>${state.role==='admin'?visible.reduce((n,c)=>n+allLessons(c).length,0):mine.reduce((n,c)=>n+completed(c),0)}</strong></div><div class="stat"><span>${state.role==='admin'?'Premium courses':'Courses completed'}</span><strong>${state.role==='admin'?visible.filter(isPremium).length:done}</strong></div>`;
-const list=state.role==='admin'?visible:mine.filter(c=>allLessons(c).length);$('#continueList').innerHTML=list.slice(0,4).map(c=>`<div class="mini-course"><div class="mini-icon">${isPremium(c)?'✦':'▦'}</div><div><strong>${esc(c.title)}</strong><small>${completed(c)} of ${allLessons(c).length} lessons completed</small><div class="progress"><span style="width:${pct(c)}%"></span></div></div><button class="text-btn" data-open-course="${c.id}">Open →</button></div>`).join('')||'<div class="empty">No lessons to continue yet. Explore the course catalogue.</div>';$('#continueList').querySelectorAll('[data-open-course]').forEach(b=>b.onclick=()=>openCourse(b.dataset.openCourse))}
-function courseCard(c,mode='catalogue'){const enrolled=isEnrolled(c);const button=state.role==='admin'?'Manage course':(isPremium(c)?(enrolled?'Continue':'Premium · payment disabled'):'Start learning');return `<article class="course-card"><div class="course-top"><span class="course-tag">${esc(c.category||'JTM ACADEMY')}</span><span class="badge ${isPremium(c)?'premium':''}">${isPremium(c)?'PREMIUM':'FREE'}</span></div><div class="course-icon">${isPremium(c)?'✦':'▦'}</div><h4>${esc(c.title)}</h4><p>${esc(c.description)}</p><div class="course-bottom"><small>${esc(c.level||'Beginner')} · ${(c.modules||[]).length} modules</small><button data-course-action="${c.id}">${button}</button></div></article>`}
-function renderCatalogue(){const list=state.courses.filter(c=>c.published||state.role==='admin').filter(c=>state.filter==='all'||c.access===state.filter);$('#catalogueGrid').innerHTML=list.map(c=>courseCard(c)).join('')||'<div class="empty">No courses in this category yet.</div>';$('#catalogueGrid').querySelectorAll('[data-course-action]').forEach(b=>b.onclick=()=>state.role==='admin'?editCourse(b.dataset.courseAction):openCourse(b.dataset.courseAction))}
-function renderMyCourses(){const list=state.courses.filter(c=>isEnrolled(c)&&c.published);$('#myCourseGrid').innerHTML=list.map(c=>courseCard(c,'mine')).join('')||'<div class="empty">You have not enrolled in any courses yet. Free courses are open to registered students.</div>';$('#myCourseGrid').querySelectorAll('[data-course-action]').forEach(b=>b.onclick=()=>openCourse(b.dataset.courseAction))}
-function renderAdmin(){const list=state.courses;$('#adminCourseList').innerHTML=list.map(c=>`<div class="admin-course-item"><div><strong>${esc(c.title)}</strong><small>${c.access.toUpperCase()} · ${(c.modules||[]).length} modules · ${c.published?'Published':'Draft'}</small></div><button data-edit="${c.id}">Edit content</button></div>`).join('')||'<div class="empty">No courses created.</div>';$('#adminCourseList').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editCourse(b.dataset.edit))}
-async function renderStudents(){if(state.demo){$('#studentTable').innerHTML='<div class="empty">Demo mode does not collect real student accounts. Connect Supabase to manage real student records.</div>';return}$('#studentTable').innerHTML='<p class="muted">Loading student records…</p>';const {data,error}=await sb.from('profiles').select('id,email,display_name,created_at').order('created_at',{ascending:false});if(error){$('#studentTable').innerHTML=`<div class="empty">${esc(error.message)}</div>`;return}$('#studentTable').innerHTML=data?.length?`<table><thead><tr><th>Student</th><th>Email</th><th>Joined</th></tr></thead><tbody>${data.map(p=>`<tr><td>${esc(p.display_name||'Student')}</td><td>${esc(p.email||'')}</td><td>${new Date(p.created_at).toLocaleDateString()}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">No student accounts yet.</div>'}
-function editCourse(cid){const c=state.courses.find(x=>x.id===cid);if(!c)return;state.activeCourse=cid;$('#courseEditor').hidden=false;$('#courseEditor').innerHTML=`<div class="panel-heading"><div><p class="eyebrow">COURSE CONTENT STUDIO</p><h3>${esc(c.title)}</h3></div><button class="btn secondary" id="closeEditor">Close</button></div><div class="editor-columns"><div class="editor-box"><h4>Add a module</h4><form id="moduleForm"><input name="title" placeholder="Module title" required><button class="btn primary">Add module</button></form><div class="editor-items" id="moduleItems"></div></div><div class="editor-box"><h4>Add a lesson</h4><form id="lessonForm"><select name="module" required><option value="">Choose module</option>${(c.modules||[]).map(m=>`<option value="${m.id}">${esc(m.title)}</option>`).join('')}</select><input name="title" placeholder="Lesson title" required><textarea name="body" rows="3" placeholder="Lesson notes / explanation"></textarea><input name="video" type="file" accept="video/*"><input name="pdf" type="file" accept="application/pdf,.pdf"><input name="duration" placeholder="Duration e.g. 12 min"><button class="btn primary">Save lesson</button></form><p class="muted">In demo mode, file uploads are not stored. Connect Supabase Storage for real video and PDF uploads.</p></div><div class="editor-box"><h4>Course quiz</h4><form id="quizForm"><input name="question" placeholder="Question" required><input name="a" placeholder="Option A" required><input name="b" placeholder="Option B" required><input name="c" placeholder="Option C" required><input name="d" placeholder="Option D" required><label>Correct answer<select name="answer"><option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option></select></label><button class="btn primary">Add quiz question</button></form><div class="editor-items" id="quizItems"></div></div><div class="editor-box"><h4>Publishing & course settings</h4><form id="publishForm"><label>Course access<select name="access"><option value="free" ${c.access==='free'?'selected':''}>Free</option><option value="premium" ${c.access==='premium'?'selected':''}>Premium</option></select></label><label>Price (GHS)<input name="price" type="number" min="0" step=".01" value="${Number(c.price)||0}"></label><label class="checkline"><input name="published" type="checkbox" ${c.published?'checked':''}> Published</label><button class="btn primary">Save settings</button></form><p class="muted">Premium payments are disabled. Do not advertise a course as purchasable until a verified payment provider is connected.</p></div></div>`;
-$('#closeEditor').onclick=()=>$('#courseEditor').hidden=true;
-function drawModules(){const wrap=$('#moduleItems');wrap.innerHTML=(c.modules||[]).map(m=>`<div class="editor-row"><span><b>${esc(m.title)}</b> · ${(m.lessons||[]).length} lessons</span><button data-del-module="${m.id}">Remove</button></div>`).join('')||'<p class="muted">No modules yet.</p>';wrap.querySelectorAll('[data-del-module]').forEach(b=>b.onclick=async()=>{if(!confirm('Remove this module and its lessons?'))return;if(!state.demo){const {error}=await sb.from('modules').delete().eq('id',b.dataset.delModule);if(error){toast(error.message);return}}c.modules=c.modules.filter(m=>m.id!==b.dataset.delModule);persist();editCourse(cid)})}
-function drawQuizzes(){const wrap=$('#quizItems');wrap.innerHTML=(c.quiz||[]).map((q,i)=>`<div class="editor-row"><span>${i+1}. ${esc(q.question)}</span><button data-del-quiz="${q.id}">Remove</button></div>`).join('')||'<p class="muted">No quiz questions yet.</p>';wrap.querySelectorAll('[data-del-quiz]').forEach(b=>b.onclick=async()=>{if(!confirm('Remove this quiz question?'))return;if(!state.demo){const {error}=await sb.from('quizzes').delete().eq('id',b.dataset.delQuiz);if(error){toast(error.message);return}}c.quiz=c.quiz.filter(q=>q.id!==b.dataset.delQuiz);persist();editCourse(cid)})}
-drawModules();drawQuizzes();$('#moduleForm').onsubmit=async e=>{e.preventDefault();const title=new FormData(e.target).get('title').trim();if(state.demo){c.modules.push({id:id(),title,lessons:[]});persist()}else{const {data,error}=await sb.from('modules').insert({course_id:cid,title,position:c.modules.length}).select().single();if(error){toast(error.message);return}c.modules.push({...data,lessons:[]})}editCourse(cid)};
-$('#lessonForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);const mod=c.modules.find(m=>m.id===fd.get('module'));if(!mod)return;let videoUrl='',pdfUrl='';if(!state.demo&&sb){const vf=fd.get('video'),pf=fd.get('pdf');if(vf&&vf.size){const path=`${cid}/${id()}-${vf.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;const up=await sb.storage.from('course-media').upload(path,vf,{upsert:false});if(up.error){toast('Video upload failed: '+up.error.message);return}videoUrl=path}if(pf&&pf.size){const path=`${cid}/${id()}-${pf.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;const up=await sb.storage.from('course-media').upload(path,pf,{upsert:false});if(up.error){toast('PDF upload failed: '+up.error.message);return}pdfUrl=path}}else if(fd.get('video')?.name||fd.get('pdf')?.name){toast('Connect Supabase to upload and store lesson files.');}
-const lesson={title:fd.get('title'),body:fd.get('body'),video_path:videoUrl,resource_path:pdfUrl,duration:fd.get('duration')||'Self-paced',position:mod.lessons.length,published:true};if(state.demo){mod.lessons.push({id:id(),...lesson,video_url:videoUrl,resource_url:pdfUrl});persist()}else{const {data,error}=await sb.from('lessons').insert({module_id:mod.id,...lesson}).select().single();if(error){toast(error.message);return}mod.lessons.push({...data,video_url:data.video_path,resource_url:data.resource_path})}editCourse(cid);toast('Lesson added')};
-$('#quizForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),q={question:f.get('question'),options:[f.get('a'),f.get('b'),f.get('c'),f.get('d')],answer:Number(f.get('answer'))};if(state.demo){c.quiz.push({id:id(),...q});persist()}else{const {data,error}=await sb.from('quizzes').insert({course_id:cid,question:q.question,options:q.options,correct_index:q.answer}).select().single();if(error){toast(error.message);return}c.quiz.push({...data,answer:data.correct_index})}editCourse(cid);toast('Quiz question added')};
-$('#publishForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);c.access=f.get('access');c.price=Number(f.get('price'));c.published=f.get('published')==='on';if(state.demo){persist()}else{const {error}=await sb.from('courses').update({access:c.access,price:c.price,published:c.published}).eq('id',cid);if(error){toast(error.message);return}}renderAdmin();toast('Course settings saved')};$('#courseEditor').scrollIntoView({behavior:'smooth',block:'start'})}
-async function openCourse(cid){const c=state.courses.find(x=>x.id===cid);if(!c)return;if(state.role==='admin'){editCourse(cid);return}if(isPremium(c)&&!isEnrolled(c)){toast('Premium enrolment is not available yet. Payments are currently disabled.');return}if(!state.demo&&!isPremium(c)&&!state.enrollments.some(e=>e.course_id===cid)){const {data,error}=await sb.from('enrollments').insert({student_id:state.user.id,course_id:cid,status:'active'}).select().single();if(error&&error.code!=='23505'){toast(error.message);return}if(data)state.enrollments.push({...data,completed_lessons:[]})}if(state.demo&&!state.enrollments.some(e=>e.course_id===cid)){demoData.enrollments.push({id:id(),course_id:cid,completed_lessons:[]});persist()}state.activeCourse=cid;const first=(c.modules||[]).flatMap(m=>m.lessons||[])[0];state.activeLesson=first?.id||null;renderLesson();$('#lessonView').hidden=false;$$('.tab-content').forEach(x=>x.hidden=true);$('#lessonView').scrollIntoView({behavior:'smooth',block:'start'})}
-function renderLesson(){const c=state.courses.find(x=>x.id===state.activeCourse);if(!c)return;const lessons=allLessons(c),active=lessons.find(l=>l.id===state.activeLesson)||lessons[0];state.activeLesson=active?.id||null;const done=getProgress(c.id);let video='';if(active?.video_url){if(state.demo)video=`<div class="video-frame">Video will appear here after the lesson file is uploaded.</div>`;else if(active.video_url.startsWith('http'))video=`<div class="video-frame"><video controls src="${esc(active.video_url)}"></video></div>`;else video=`<div class="video-frame" id="videoFrame">Loading lesson video…</div>`}else video='<div class="video-frame"><div><div style="font-size:34px">▶</div><small>Lesson video will appear here when uploaded</small></div></div>';
-$('#lessonView').innerHTML=`<div class="lesson-head"><div><p class="eyebrow">${esc(c.category||'JTM ACADEMY')} · ${esc(c.level||'Beginner')}</p><h2>${esc(c.title)}</h2><p class="muted">${done.length} of ${lessons.length} lessons completed · ${pct(c)}%</p></div><button class="btn secondary" id="backToCourses">← Back to dashboard</button></div><div class="progress"><span style="width:${pct(c)}%"></span></div><div class="lesson-layout"><aside class="lesson-nav">${(c.modules||[]).map(m=>`<strong style="font-size:11px;display:block;padding:9px 8px">${esc(m.title)}</strong>${(m.lessons||[]).map(l=>`<button class="${active?.id===l.id?'active':''}" data-lesson="${l.id}">${done.includes(l.id)?'✓ ':''}${esc(l.title)}</button>`).join('')}`).join('')||'<p class="muted">The instructor has not added lessons yet.</p>'}</aside><article class="lesson-body">${active?`${video}<h3>${esc(active.title)}</h3><p>${esc(active.body||'Lesson notes will be added soon.')}</p>${active.resource_url?`<a class="resource-link" id="resourceLink" href="#" target="_blank" rel="noopener">Open reading material ↗</a>`:''}<p class="muted">${esc(active.duration||'Self-paced')}</p><button class="btn primary" id="markComplete">${done.includes(active.id)?'Lesson completed ✓':'Mark lesson as complete'}</button>`:'<div class="empty">No lessons have been published in this course yet.</div>'}<div id="quizArea"></div>${pct(c)===100&&isPremium(c)?`<button class="btn secondary" id="certificateBtn">View course certificate</button>`:''}</article></div>`;
-$('#backToCourses').onclick=()=>{showTab('mycourses');$('#lessonView').hidden=true};$$('[data-lesson]').forEach(b=>b.onclick=()=>{state.activeLesson=b.dataset.lesson;renderLesson()});if(active)$('#markComplete').onclick=()=>markComplete(c,active);if(c.quiz?.length)renderQuiz(c);if(!state.demo&&sb&&active?.video_url&&!active.video_url.startsWith('http'))loadPrivateFile(active.video_url,'videoFrame','video');if(!state.demo&&sb&&active?.resource_url&&!active.resource_url.startsWith('http'))loadPrivateFile(active.resource_url,'resourceLink','link');if(pct(c)===100&&isPremium(c))$('#certificateBtn').onclick=()=>showCertificate(c)}
-async function loadPrivateFile(path,target,kind){const {data,error}=await sb.storage.from('course-media').createSignedUrl(path,3600);if(error){$('#'+target).textContent='The lesson file could not be loaded.';return}const el=$('#'+target);if(el){if(kind==='video')el.innerHTML=`<video controls src="${esc(data.signedUrl)}"></video>`;else el.href=data.signedUrl}}
-function markComplete(c,l){if(state.demo){demoData.progress[c.id]=[...new Set([...(demoData.progress[c.id]||[]),l.id])];persist()}else{const e=state.enrollments.find(x=>x.course_id===c.id);if(e){e.completed_lessons=[...new Set([...(e.completed_lessons||[]),l.id])];sb.from('lesson_progress').upsert({enrollment_id:e.id,lesson_id:l.id,completed:true,completed_at:new Date().toISOString()},{onConflict:'enrollment_id,lesson_id'}).then(({error})=>{if(error)toast(error.message)})}}renderLesson();toast('Lesson progress saved')}
-function renderQuiz(c){const area=$('#quizArea');area.innerHTML=`<div class="quiz"><h3>Knowledge check</h3><p class="muted">Answer the questions to practise what you have learned.</p>${c.quiz.map((q,i)=>`<div class="quiz-q"><strong>${i+1}. ${esc(q.question)}</strong>${q.options.map((o,j)=>`<label><input type="radio" name="q_${q.id}" value="${j}"> ${String.fromCharCode(65+j)}. ${esc(o)}</label>`).join('')}</div>`).join('')}<button class="btn primary" id="submitQuiz">Check answers</button><p class="message" id="quizResult"></p></div>`;$('#submitQuiz').onclick=()=>{let score=0,answered=0;c.quiz.forEach(q=>{const chosen=$(`input[name="q_${q.id}"]:checked`);if(chosen){answered++;if(Number(chosen.value)===q.answer)score++}});$('#quizResult').textContent=`You scored ${score} out of ${c.quiz.length}. ${answered<c.quiz.length?'Answer every question and try again.':score===c.quiz.length?'Excellent work!':'Review the lesson and try again.'}`}}
-async function showCertificate(c){if(!isPremium(c)||pct(c)<100){toast('Complete all lessons in an eligible premium course first.');return}const name=state.user?.email?.split('@')[0]||'Student';let code='DEMO-PREVIEW',issued=new Date().toISOString();if(!state.demo){const {data,error}=await sb.functions.invoke('issue-certificate',{body:{course_id:c.id}});if(error||data?.error){toast(data?.error||error?.message||'Certificate could not be issued.');return}code=data.certificate_code;issued=data.issued_at}const w=window.open('','_blank');if(!w){toast('Allow pop-ups to view the certificate.');return}const status=state.demo?'DEMO PREVIEW · NOT AN OFFICIAL CERTIFICATE':`CERTIFICATE ID: ${code}`;w.document.write(`<!doctype html><html><head><title>JTM Certificate</title><style>body{font-family:Georgia,serif;background:#f4f2eb;padding:35px}.cert{max-width:850px;margin:25px auto;background:#fffdf8;border:10px double #c5a15d;padding:65px 35px;text-align:center;color:#172b45}.cert h1{font-size:38px}.name{font-size:30px;color:#96702e;border-bottom:1px solid #c5a15d;display:inline-block;padding:12px 40px}.cert p{line-height:1.8}.id{font:12px Arial;color:#78808c;margin-top:40px}@media print{body{background:white;padding:0}}</style></head><body><div class="cert"><p>JOSH TECH MEDIA · DIGITAL ACADEMY</p><h1>Certificate of Completion</h1><p>This certificate is presented to</p><div class="name">${esc(name)}</div><p>for completing the premium course</p><h2>${esc(c.title)}</h2><p>Issued by JOSH TECH MEDIA</p><div class="id">${esc(status)} · ${new Date(issued).toLocaleDateString()}</div><p><button onclick="window.print()">Print certificate</button></p></div></body></html>`);w.document.close()}
-function persist(){if(state.demo){saveDemo(demoData);state.courses=demoData.courses;state.enrollments=demoData.enrollments}else{/* Remote writes are handled by the Supabase data functions. */}}
-async function loadRemote(){const {data:admin}=await sb.from('admin_users').select('user_id').eq('user_id',state.user.id).maybeSingle();state.role=admin?'admin':'student';const {data:rows,error}=await sb.from('courses').select('*,modules(*,lessons(*)),quizzes(*)').order('created_at',{ascending:false});if(error)throw error;state.courses=(rows||[]).map(c=>({...c,modules:(c.modules||[]).sort((a,b)=>a.position-b.position).map(m=>({...m,lessons:(m.lessons||[]).sort((a,b)=>a.position-b.position).map(l=>({...l,video_url:l.video_path,resource_url:l.resource_path}))})),quiz:(c.quizzes||[]).map(q=>({...q,answer:q.correct_index,options:q.options||[]}))}));const {data:en,error:ee}=await sb.from('enrollments').select('*,lesson_progress(*)').eq('student_id',state.user.id);if(ee)throw ee;state.enrollments=(en||[]).map(e=>({...e,completed_lessons:(e.lesson_progress||[]).filter(p=>p.completed).map(p=>p.lesson_id)}));openApp(state.role,state.user,false)}
-async function remoteCreateCourse(c){c.created_by=state.user.id;const {data,error}=await sb.from('courses').insert(c).select().single();if(error)throw error;return data}
-async function remoteReload(){if(state.demo){state.courses=demoData.courses;state.enrollments=demoData.enrollments;return}await loadRemote()}
-$('#authForm').onsubmit=async e=>{e.preventDefault();if(!sb){$('#authMessage').textContent='Supabase is not configured yet. Use a preview button or follow SETUP.md to connect your project.';return}const email=$('#authEmail').value,password=$('#authPassword').value;const {data,error}=await sb.auth.signInWithPassword({email,password});if(error){$('#authMessage').textContent=error.message;return}state.user=data.user;try{await loadRemote()}catch(err){$('#authMessage').textContent='Signed in, but could not load academy data: '+err.message}};
-$('#signUpBtn').onclick=async()=>{
-  if(!sb){
-    $('#authMessage').textContent='Connect Supabase first to create real student accounts.';
-    return;
-  }
 
-  const email=$('#authEmail').value.trim();
-  const password=$('#authPassword').value;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="JTM Digital Academy learning portal">
+  <meta name="theme-color" content="#081426">
+  <title>JTM Digital Academy | JOSH TECH MEDIA</title>
 
-  if(!email||password.length<6){
-    $('#authMessage').textContent='Enter an email and a password of at least 6 characters.';
-    return;
-  }
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-  $('#authMessage').textContent='Creating your account...';
+  <link rel="stylesheet" href="lms.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+</head>
 
-  const {data,error}=await sb.auth.signUp({email,password});
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img src="assets/josh-tech-media-logo.png" alt="JTM logo">
+    <span>JOSH TECH MEDIA<small>DIGITAL ACADEMY</small></span>
+  </a>
 
-  if(error){
-    $('#authMessage').textContent=error.message;
-    return;
-  }
+  <div class="top-actions">
+    <a href="index.html" class="backlink">← Main website</a>
+    <span id="connectionStatus" class="status-pill">Checking connection…</span>
+  </div>
+</header>
 
-  if(data.session){
-    state.user=data.user;
+<main class="wrap">
 
-    try{
-      await loadRemote();
-      toast('Welcome to JTM Digital Academy!');
-    }catch(err){
-      $('#authMessage').textContent='Account created, but dashboard loading failed: '+err.message;
-    }
-  }else{
-    $('#authMessage').textContent='Account created. Email confirmation is still enabled in Supabase. Please contact the administrator.';
-  }
-};
-$('#demoAdmin').onclick=()=>{demoData=readDemo();state.courses=demoData.courses;state.enrollments=demoData.enrollments;openApp('admin',{email:'admin-preview@example.com'},true)};
-$('#signOutBtn').onclick=async()=>{if(sb&&!state.demo)await sb.auth.signOut();closeApp()};$('#switchRole').onclick=()=>openApp(state.role==='admin'?'student':'admin',{email:state.role==='admin'?'student@example.com':'admin-preview@example.com'},true);
-$$('.tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));$$('[data-goto]').forEach(b=>b.onclick=()=>showTab(b.dataset.goto));$$('[data-course-filter]').forEach(b=>b.onclick=()=>{$$('.filter').forEach(x=>x.classList.toggle('active',x===b));state.filter=b.dataset.courseFilter;renderCatalogue()});
-$('#courseForm').onsubmit=async e=>{e.preventDefault();if(state.role!=='admin')return;const f=new FormData(e.target);const c={title:f.get('title'),description:f.get('description'),access:f.get('access'),level:f.get('level'),category:f.get('category'),price:Number(f.get('price'))||0,published:f.get('published')==='on'};if(state.demo){c.id=id();c.modules=[];c.quiz=[];demoData.courses.unshift(c);persist()}else{try{const saved=await remoteCreateCourse(c);state.courses.unshift({...saved,modules:[],quiz:[]})}catch(err){$('#courseMessage').textContent=err.message;return}}e.target.reset();$('#courseMessage').textContent='Course created successfully.';renderAdmin();renderOverview()};
-$('#connectionStatus').textContent=configured?'Supabase configured':'Demo preview';$('#year').textContent=new Date().getFullYear();
-if(sb){sb.auth.getSession().then(async({data})=>{if(data.session){state.user=data.session.user;try{await loadRemote()}catch(e){$('#authMessage').textContent='Backend setup incomplete: '+e.message}}})}
-})();
+  <section id="welcome" class="welcome">
+    <div>
+      <p class="eyebrow">JTM DIGITAL ACADEMY</p>
+      <h1>Learn. Practise. <span>Grow.</span></h1>
+      <p>Explore practical courses, follow lessons at your pace and build useful digital skills.</p>
+    </div>
+    <div class="welcome-mark">JTM<span>+</span></div>
+  </section>
+
+  <!-- ONE LOGIN PAGE FOR STUDENTS AND ADMIN -->
+  <section id="authPanel" class="auth-panel panel">
+    <div>
+      <p class="eyebrow">STUDENT &amp; ADMIN ACCESS</p>
+      <h2>Sign in to your learning space</h2>
+      <p class="muted">
+        Sign in to access your dashboard. New students can create an account here.
+      </p>
+    </div>
+
+    <form id="authForm" class="auth-form">
+      <label>Email address
+        <input id="authEmail" type="email" autocomplete="username"
+          placeholder="you@example.com" required>
+      </label>
+
+      <label>Password
+        <input id="authPassword" type="password"
+          autocomplete="current-password" minlength="6"
+          placeholder="At least 6 characters" required>
+      </label>
+
+      <div class="auth-buttons">
+        <button class="btn primary" type="submit" id="signInBtn">
+          Sign in
+        </button>
+
+        <button class="btn secondary" type="button" id="signUpBtn">
+          Create student account
+        </button>
+      </div>
+
+      <p id="authMessage" class="message" aria-live="polite"></p>
+    </form>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section id="appPanel" hidden>
+
+    <div class="dash-head">
+      <div>
+        <p class="eyebrow" id="dashEyebrow">YOUR LEARNING</p>
+        <h2 id="dashTitle">Student dashboard</h2>
+        <p class="muted" id="dashSubtitle"></p>
+      </div>
+
+      <div class="dash-actions">
+        <button class="btn secondary" id="refreshBtn" type="button">
+          Refresh
+        </button>
+        <button class="btn secondary" id="signOutBtn" type="button">
+          Sign out
+        </button>
+      </div>
+    </div>
+
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="overview" type="button">Overview</button>
+      <button class="tab" data-tab="catalogue" type="button">Course catalogue</button>
+      <button class="tab" data-tab="mycourses" type="button">My learning</button>
+
+      <button class="tab admin-only" data-tab="manage"
+        type="button" hidden>Manage courses</button>
+
+      <button class="tab admin-only" data-tab="students"
+        type="button" hidden>Students</button>
+    </nav>
+
+    <!-- OVERVIEW -->
+    <section class="tab-content" id="tab-overview">
+      <div class="stats" id="stats"></div>
+
+      <div class="content-grid">
+        <div class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">KEEP GOING</p>
+              <h3>Continue learning</h3>
+            </div>
+            <button class="text-btn" data-goto="mycourses" type="button">
+              View all →
+            </button>
+          </div>
+
+          <div id="continueList" class="course-list"></div>
+        </div>
+
+        <aside class="panel tip-panel">
+          <div class="tip-icon">✦</div>
+          <h3>Your learning journey</h3>
+          <p>
+            Work through each lesson, complete the available practice
+            and keep building your skills one topic at a time.
+          </p>
+          <div class="tip-foot">
+            JTM · TECHNOLOGY · INNOVATION · EDUCATION
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- COURSE CATALOGUE -->
+    <section class="tab-content" id="tab-catalogue" hidden>
+      <div class="section-title">
+        <div>
+          <p class="eyebrow">EXPLORE</p>
+          <h3>Available courses</h3>
+        </div>
+
+        <div class="filters">
+          <button class="filter active" data-course-filter="all" type="button">All</button>
+          <button class="filter" data-course-filter="free" type="button">Free</button>
+          <button class="filter" data-course-filter="premium" type="button">Premium</button>
+        </div>
+      </div>
+
+      <div id="catalogueGrid" class="course-grid"></div>
+    </section>
+
+    <!-- MY LEARNING -->
+    <section class="tab-content" id="tab-mycourses" hidden>
+      <div class="section-title">
+        <div>
+          <p class="eyebrow">YOUR PROGRESS</p>
+          <h3>My learning</h3>
+        </div>
+      </div>
+
+      <div id="myCourseGrid" class="course-grid"></div>
+    </section>
+
+    <!-- ADMIN COURSE MANAGEMENT -->
+    <section class="tab-content" id="tab-manage" hidden>
+      <div class="content-grid admin-grid">
+
+        <div class="panel">
+          <p class="eyebrow">COURSE BUILDER</p>
+          <h3>Create a course</h3>
+
+          <form id="courseForm" class="stack-form">
+            <label>Course title
+              <input name="title" required maxlength="140"
+                placeholder="e.g. Cybersecurity Foundations">
+            </label>
+
+            <label>Short description
+              <textarea name="description" rows="3" required
+                maxlength="1200" placeholder="What will students learn?"></textarea>
+            </label>
+
+            <div class="two-fields">
+              <label>Access
+                <select name="access">
+                  <option value="free">Free</option>
+                  <option value="premium">Premium</option>
+                </select>
+              </label>
+
+              <label>Level
+                <select name="level">
+                  <option>Beginner</option>
+                  <option>Intermediate</option>
+                  <option>Advanced</option>
+                </select>
+              </label>
+            </div>
+
+            <label>Category
+              <input name="category" maxlength="80"
+                placeholder="e.g. Cybersecurity">
+            </label>
+
+            <label>Price (GHS, display only while payments are disabled)
+              <input name="price" type="number" min="0"
+                step="0.01" value="0">
+            </label>
+
+            <label class="checkline">
+              <input name="published" type="checkbox">
+              Publish course in catalogue
+            </label>
+
+            <button class="btn primary" type="submit">
+              Create course
+            </button>
+
+            <p class="message" id="courseMessage" aria-live="polite"></p>
+          </form>
+        </div>
+
+        <div class="panel">
+          <p class="eyebrow">CONTENT MANAGEMENT</p>
+          <h3>Your courses</h3>
+          <p class="muted">
+            Select a course to add modules and lessons or change its publication status.
+          </p>
+          <div id="adminCourseList" class="admin-course-list"></div>
+        </div>
+      </div>
+
+      <div id="courseEditor" class="panel editor-panel" hidden></div>
+    </section>
+
+    <!-- ADMIN STUDENT RECORDS -->
+    <section class="tab-content" id="tab-students" hidden>
+      <div class="panel">
+        <p class="eyebrow">ACADEMY ADMINISTRATION</p>
+        <h3>Student records</h3>
+        <p class="muted">
+          Student profiles and enrolments are shown here.
+        </p>
+        <div id="studentTable" class="table-wrap"></div>
+      </div>
+    </section>
+
+  </section>
+
+  <!-- LESSON VIEW -->
+  <section id="lessonView" class="panel lesson-view" hidden></section>
+
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<footer class="portal-footer">
+  <span>© <span id="year"></span> JOSH TECH MEDIA</span>
+  <span>Learn responsibly · Keep practising</span>
+</footer>
+
+<script src="lms.js"></script>
+</body>
+</html>
