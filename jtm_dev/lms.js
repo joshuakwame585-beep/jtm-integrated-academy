@@ -57,8 +57,42 @@ async function loadRemote(){const {data:admin}=await sb.from('admin_users').sele
 async function remoteCreateCourse(c){c.created_by=state.user.id;const {data,error}=await sb.from('courses').insert(c).select().single();if(error)throw error;return data}
 async function remoteReload(){if(state.demo){state.courses=demoData.courses;state.enrollments=demoData.enrollments;return}await loadRemote()}
 $('#authForm').onsubmit=async e=>{e.preventDefault();if(!sb){$('#authMessage').textContent='Supabase is not configured yet. Use a preview button or follow SETUP.md to connect your project.';return}const email=$('#authEmail').value,password=$('#authPassword').value;const {data,error}=await sb.auth.signInWithPassword({email,password});if(error){$('#authMessage').textContent=error.message;return}state.user=data.user;try{await loadRemote()}catch(err){$('#authMessage').textContent='Signed in, but could not load academy data: '+err.message}};
-$('#signUpBtn').onclick=async()=>{if(!sb){$('#authMessage').textContent='Connect Supabase first to create real student accounts.';return}const email=$('#authEmail').value,password=$('#authPassword').value;if(!email||password.length<6){$('#authMessage').textContent='Enter an email and a password of at least 6 characters.';return}const {data,error}=await sb.auth.signUp({email,password});$('#authMessage').textContent=error?error.message:'Account created. Check your email if confirmation is enabled, then sign in.'};
-$('#demoStudent').onclick=()=>{demoData=readDemo();state.courses=demoData.courses;state.enrollments=demoData.enrollments;openApp('student',{email:'student@example.com'},true)};
+$('#signUpBtn').onclick=async()=>{
+  if(!sb){
+    $('#authMessage').textContent='Connect Supabase first to create real student accounts.';
+    return;
+  }
+
+  const email=$('#authEmail').value.trim();
+  const password=$('#authPassword').value;
+
+  if(!email||password.length<6){
+    $('#authMessage').textContent='Enter an email and a password of at least 6 characters.';
+    return;
+  }
+
+  $('#authMessage').textContent='Creating your account...';
+
+  const {data,error}=await sb.auth.signUp({email,password});
+
+  if(error){
+    $('#authMessage').textContent=error.message;
+    return;
+  }
+
+  if(data.session){
+    state.user=data.user;
+
+    try{
+      await loadRemote();
+      toast('Welcome to JTM Digital Academy!');
+    }catch(err){
+      $('#authMessage').textContent='Account created, but dashboard loading failed: '+err.message;
+    }
+  }else{
+    $('#authMessage').textContent='Account created. Email confirmation is still enabled in Supabase. Please contact the administrator.';
+  }
+};
 $('#demoAdmin').onclick=()=>{demoData=readDemo();state.courses=demoData.courses;state.enrollments=demoData.enrollments;openApp('admin',{email:'admin-preview@example.com'},true)};
 $('#signOutBtn').onclick=async()=>{if(sb&&!state.demo)await sb.auth.signOut();closeApp()};$('#switchRole').onclick=()=>openApp(state.role==='admin'?'student':'admin',{email:state.role==='admin'?'student@example.com':'admin-preview@example.com'},true);
 $$('.tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));$$('[data-goto]').forEach(b=>b.onclick=()=>showTab(b.dataset.goto));$$('[data-course-filter]').forEach(b=>b.onclick=()=>{$$('.filter').forEach(x=>x.classList.toggle('active',x===b));state.filter=b.dataset.courseFilter;renderCatalogue()});
