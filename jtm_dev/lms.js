@@ -1,7 +1,7 @@
 
 /* JTM DIGITAL ACADEMY
    Student and administrator portal.
-   Uses the supplied Supabase database schema.
+   Includes secure video and PDF uploads through Supabase Storage.
 */
 
 (() => {
@@ -26,6 +26,9 @@
     ? window.supabase.createClient(url, key)
     : null;
 
+  const STORAGE_BUCKET = 'course-media';
+  const MAX_FILE_SIZE = 524288000;
+
   const state = {
     user: null,
     role: 'student',
@@ -35,7 +38,6 @@
     filter: 'all'
   };
 
-  // Safely display text from the database.
   function esc(value) {
     return String(value ?? '').replace(/[&<>"']/g, ch => ({
       '&': '&amp;',
@@ -70,7 +72,10 @@
     if (!button) return;
 
     if (busy) {
-      button.dataset.oldText = button.textContent;
+      if (!button.disabled) {
+        button.dataset.oldText = button.textContent;
+      }
+
       button.disabled = true;
       button.textContent = busyText || 'Please wait…';
     } else {
@@ -78,11 +83,11 @@
 
       if (button.dataset.oldText) {
         button.textContent = button.dataset.oldText;
+        delete button.dataset.oldText;
       }
     }
   }
 
-  // Students cannot open administrator tabs.
   function showTab(tab) {
     if (
       (tab === 'manage' || tab === 'students') &&
@@ -147,9 +152,6 @@
     showMessage('#authMessage', '');
   }
 
-  // Check the admin_users table.
-  // New registrations are students unless their ID is
-  // separately added to admin_users by the project owner.
   async function identifyRole() {
     const { data, error } = await sb
       .from('admin_users')
@@ -339,7 +341,6 @@
       : '<p class="muted">Your enrolled courses will appear here.</p>';
   }
 
-  // Only free courses can be enrolled in while payments are disabled.
   async function enrol(courseId) {
     const course = state.courses.find(
       item => item.id === courseId
@@ -467,6 +468,94 @@
     $('#lessonView').hidden = false;
   }
 
+  // Create a temporary secure URL for a private Storage file.
+  async function getMediaUrl(path) {
+    if (!path) return null;
+
+    const { data, error } = await sb.storage
+      .from(STORAGE_BUCKET)
+      .createSignedUrl(path, 3600);
+
+    if (error) throw error;
+
+    return data.signedUrl;
+  }
+
+  // Validate media before uploading.
+  function validateMedia(file, type) {
+    if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error('File is too large. Maximum size is 500 MB.');
+    }
+
+    const extension = file.name.split('.').pop().toLowerCase();
+
+    if (type === 'video') {
+      const valid =
+        ['mp4', 'webm', 'mov'].includes(extension) &&
+        ['video/mp4', 'video/webm', 'video/quicktime'].includes(file.type);
+
+      if (!valid) {
+        throw new Error('Choose an MP4, WebM or MOV video file.');
+      }
+    }
+
+    if (type === 'pdf') {
+      if (
+        extension !== 'pdf' ||
+        file.type !== 'application/pdf'
+      ) {
+        throw new Error('Choose a valid PDF file.');
+      }
+    }
+  }
+
+  function safeFileName(name) {
+    return name
+      .normalize('NFKD')
+      .replace(/[^a-zA-Z0-9._-]/g, '-')
+      .replace(/-+/g, '-')
+      .slice(-120);
+  }
+
+  async function uploadMedia(file, courseId, moduleId, type) {
+    if (!file) return null;
+
+    validateMedia(file, type);
+
+    const uniqueId = crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    const filename = safeFileName(file.name);
+
+    const path = `${courseId}/${moduleId}/${type}-${uniqueId}-${filename}`;
+
+    const { error } = await sb.storage
+      .from(STORAGE_BUCKET)
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type
+      });
+
+    if (error) throw error;
+
+    return path;
+  }
+
+  async function removeUploadedMedia(paths) {
+    const validPaths = paths.filter(Boolean);
+
+    if (!validPaths.length) return;
+
+    await sb.storage
+      .from(STORAGE_BUCKET)
+      .remove(validPaths);
+  }
+
+  // OPEN LESSON WITH VIDEO AND PDF SUPPORT
   async function openLesson(lessonId, courseId) {
     const { data: lesson, error } = await sb
       .from('lessons')
@@ -479,6 +568,55 @@
       return;
     }
 
+    let videoUrl = null;
+    let pdfUrl = null;
+
+    try {
+      if (lesson.video_path) {
+        videoUrl = await getMediaUrl(lesson.video_path);
+      }
+
+      if (lesson.resource_path) {
+        pdfUrl = await getMediaUrl(lesson.resource_path);
+      }
+    } catch (mediaError) {
+      toast(`Could not load course material: ${mediaError.message}`);
+      return;
+    }
+
+    const videoSection = videoUrl
+      ? `
+        <section class="lesson-media">
+          <h4>Lesson video</h4>
+          <div class="video-frame">
+            <video controls playsinline preload="metadata">
+              <source src="${esc(videoUrl)}">
+              Your browser does not support video playback.
+            </video>
+          </div>
+        </section>`
+      : '';
+
+    const pdfSection = pdfUrl
+      ? `
+        <section class="lesson-media pdf-resource">
+          <h4>Reading material</h4>
+          <iframe
+            class="pdf-frame"
+            src="${esc(pdfUrl)}"
+            title="${esc(lesson.title)} reading material"
+            loading="lazy">
+          </iframe>
+
+          <a class="resource-link"
+            href="${esc(pdfUrl)}"
+            target="_blank"
+            rel="noopener noreferrer">
+            Open PDF in a new tab
+          </a>
+        </section>`
+      : '';
+
     $('#lessonContent').innerHTML = `
       <div class="lesson-content">
         <h3>${esc(lesson.title)}</h3>
@@ -487,6 +625,9 @@
           ${esc(lesson.body || 'No reading material has been added yet.')
             .replace(/\n/g, '<br>')}
         </div>
+
+        ${videoSection}
+        ${pdfSection}
 
         <button class="btn primary"
           type="button"
@@ -643,10 +784,8 @@
     $('#moduleForm').addEventListener('submit', async event => {
       event.preventDefault();
 
-      const title = new FormData(event.currentTarget)
-        .get('title')
-        .toString()
-        .trim();
+      const form = event.currentTarget;
+      const title = new FormData(form).get('title').toString().trim();
 
       const { error } = await sb.from('modules').insert({
         course_id: courseId,
@@ -658,7 +797,7 @@
         return;
       }
 
-      event.currentTarget.reset();
+      form.reset();
       toast('Module added.');
 
       await renderModuleManager(courseId);
@@ -667,8 +806,11 @@
     await renderModuleManager(courseId);
   }
 
+  // ADMIN MODULE AND LESSON MANAGER
   async function renderModuleManager(courseId) {
     const target = $('#moduleManager');
+
+    if (!target) return;
 
     const { data: modules, error } = await sb
       .from('modules')
@@ -718,6 +860,28 @@
             <input name="duration" value="Self-paced" maxlength="50">
           </label>
 
+          <label>Upload lesson video
+            <input
+              type="file"
+              name="videoFile"
+              accept="video/mp4,video/webm,video/quicktime">
+          </label>
+
+          <small class="muted">
+            Supported formats: MP4, WebM and MOV. Maximum 500 MB.
+          </small>
+
+          <label>Upload PDF reading material
+            <input
+              type="file"
+              name="resourceFile"
+              accept="application/pdf,.pdf">
+          </label>
+
+          <small class="muted">
+            PDF files only. Maximum 500 MB.
+          </small>
+
           <button class="btn secondary" type="submit">
             Add lesson
           </button>
@@ -726,8 +890,13 @@
         <ul>
           ${
             lessons.filter(lesson => lesson.module_id === module.id)
-              .map(lesson => `<li>${esc(lesson.title)}</li>`)
-              .join('') || '<li class="muted">No lessons yet.</li>'
+              .map(lesson => `
+                <li>
+                  ${esc(lesson.title)}
+                  ${lesson.video_path ? ' · Video' : ''}
+                  ${lesson.resource_path ? ' · PDF' : ''}
+                </li>
+              `).join('') || '<li class="muted">No lessons yet.</li>'
           }
         </ul>
       </div>
@@ -737,26 +906,89 @@
       form.addEventListener('submit', async event => {
         event.preventDefault();
 
-        const fd = new FormData(form);
-
-        const { error: insertError } = await sb
-          .from('lessons')
-          .insert({
-            module_id: form.dataset.moduleId,
-            title: String(fd.get('title')).trim(),
-            body: String(fd.get('body') || ''),
-            duration: String(fd.get('duration') || 'Self-paced'),
-            published: true
-          });
-
-        if (insertError) {
-          toast(insertError.message);
+        if (state.role !== 'admin') {
+          toast('Administrator access is required.');
           return;
         }
 
-        toast('Lesson added.');
+        const fd = new FormData(form);
+        const button = form.querySelector('button[type="submit"]');
 
-        await renderModuleManager(courseId);
+        const title = String(fd.get('title') || '').trim();
+        const body = String(fd.get('body') || '');
+        const duration = String(fd.get('duration') || 'Self-paced');
+
+        const videoFile = fd.get('videoFile');
+        const resourceFile = fd.get('resourceFile');
+
+        if (!title) {
+          toast('Enter a lesson title.');
+          return;
+        }
+
+        const uploadedPaths = [];
+
+        setBusy(button, true, 'Uploading lesson…');
+
+        try {
+          // Validate both files before uploading either.
+          validateMedia(videoFile, 'video');
+          validateMedia(resourceFile, 'pdf');
+
+          const moduleId = form.dataset.moduleId;
+
+          let videoPath = null;
+          let resourcePath = null;
+
+          if (videoFile && videoFile.size > 0) {
+            videoPath = await uploadMedia(
+              videoFile,
+              courseId,
+              moduleId,
+              'video'
+            );
+
+            uploadedPaths.push(videoPath);
+          }
+
+          if (resourceFile && resourceFile.size > 0) {
+            resourcePath = await uploadMedia(
+              resourceFile,
+              courseId,
+              moduleId,
+              'pdf'
+            );
+
+            uploadedPaths.push(resourcePath);
+          }
+
+          const { error: insertError } = await sb
+            .from('lessons')
+            .insert({
+              module_id: moduleId,
+              title,
+              body,
+              duration,
+              video_path: videoPath,
+              resource_path: resourcePath,
+              published: true
+            });
+
+          if (insertError) throw insertError;
+
+          toast('Lesson and learning materials added successfully.');
+
+          await renderModuleManager(courseId);
+
+        } catch (error) {
+          // Clean up uploaded files if the lesson was not saved.
+          await removeUploadedMedia(uploadedPaths);
+
+          toast(error.message || 'Could not add lesson.');
+
+        } finally {
+          setBusy(button, false);
+        }
       });
     });
   }
@@ -846,29 +1078,24 @@
     const email = $('#authEmail').value.trim();
     const password = $('#authPassword').value;
 
-    const { data, error } = await sb.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    setBusy(button, false);
-
-    if (error) {
-      showMessage('#authMessage', error.message, true);
-      return;
-    }
-
-    state.user = data.user;
-
     try {
+      const { data, error } = await sb.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) throw error;
+
+      state.user = data.user;
+
       await loadRemote();
       showMessage('#authMessage', '');
-    } catch (err) {
-      showMessage(
-        '#authMessage',
-        `Signed in, but dashboard loading failed: ${err.message}`,
-        true
-      );
+
+    } catch (error) {
+      showMessage('#authMessage', error.message, true);
+
+    } finally {
+      setBusy(button, false);
     }
   });
 
@@ -899,41 +1126,37 @@
 
     setBusy(button, true, 'Creating account…');
 
-    const { data, error } = await sb.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          display_name: email.split('@')[0]
+    try {
+      const { data, error } = await sb.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            display_name: email.split('@')[0]
+          }
         }
-      }
-    });
+      });
 
-    setBusy(button, false);
+      if (error) throw error;
 
-    if (error) {
-      showMessage('#authMessage', error.message, true);
-      return;
-    }
+      if (data.session && data.user) {
+        state.user = data.user;
 
-    if (data.session && data.user) {
-      state.user = data.user;
-
-      try {
         await loadRemote();
         toast('Your student account is ready.');
-      } catch (err) {
+
+      } else {
         showMessage(
           '#authMessage',
-          `Account created, but dashboard loading failed: ${err.message}`,
-          true
+          'Your account was created, but Supabase has not started a session. Check Authentication → Sign In / Providers → Email and turn off Confirm email if you want immediate sign-in.'
         );
       }
-    } else {
-      showMessage(
-        '#authMessage',
-        'Your account was created, but Supabase has not started a session. Check Authentication → Sign In / Providers → Email and turn off Confirm email if you want immediate sign-in.'
-      );
+
+    } catch (error) {
+      showMessage('#authMessage', error.message, true);
+
+    } finally {
+      setBusy(button, false);
     }
   });
 
@@ -1045,31 +1268,34 @@
 
     setBusy(button, true, 'Creating…');
 
-    const { error } = await sb.from('courses').insert({
-      title: String(fd.get('title')).trim(),
-      description: String(fd.get('description')).trim(),
-      access: String(fd.get('access')),
-      level: String(fd.get('level')),
-      category: String(fd.get('category') || 'General').trim() || 'General',
-      price: Number(fd.get('price') || 0),
-      published: fd.get('published') === 'on',
-      created_by: state.user.id
-    });
+    try {
+      const { error } = await sb.from('courses').insert({
+        title: String(fd.get('title')).trim(),
+        description: String(fd.get('description')).trim(),
+        access: String(fd.get('access')),
+        level: String(fd.get('level')),
+        category: String(fd.get('category') || 'General').trim() || 'General',
+        price: Number(fd.get('price') || 0),
+        published: fd.get('published') === 'on',
+        created_by: state.user.id
+      });
 
-    setBusy(button, false);
+      if (error) throw error;
 
-    if (error) {
+      form.reset();
+      form.elements.price.value = '0';
+
+      showMessage('#courseMessage', 'Course created successfully.');
+
+      await loadRemote();
+      showTab('manage');
+
+    } catch (error) {
       showMessage('#courseMessage', error.message, true);
-      return;
+
+    } finally {
+      setBusy(button, false);
     }
-
-    form.reset();
-    form.elements.price.value = '0';
-
-    showMessage('#courseMessage', 'Course created successfully.');
-
-    await loadRemote();
-    showTab('manage');
   });
 
   // INITIAL SETUP
