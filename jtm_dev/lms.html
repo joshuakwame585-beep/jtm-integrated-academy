@@ -1,31 +1,274 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="JTM Digital Academy online learning portal"><meta name="theme-color" content="#081426">
-<title>JTM Academy Portal | JOSH TECH MEDIA</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lms.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="JTM Digital Academy learning portal">
+  <meta name="theme-color" content="#081426">
+  <title>JTM Digital Academy | JOSH TECH MEDIA</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="lms.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
 </head>
+
 <body>
-<header class="topbar"><a class="brand" href="index.html"><img src="assets/josh-tech-media-logo.png" alt="JTM logo"><span>JOSH TECH MEDIA<small>DIGITAL ACADEMY</small></span></a><div class="top-actions"><a href="index.html" class="backlink">← Main website</a><span id="connectionStatus" class="status-pill">Demo preview</span></div></header>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <img src="assets/josh-tech-media-logo.png" alt="JTM logo">
+    <span>JOSH TECH MEDIA<small>DIGITAL ACADEMY</small></span>
+  </a>
+
+  <div class="top-actions">
+    <a href="index.html" class="backlink">← Main website</a>
+    <span id="connectionStatus" class="status-pill">Checking connection…</span>
+  </div>
+</header>
+
 <main class="wrap">
-<section id="welcome" class="welcome"><div><p class="eyebrow">JTM DIGITAL ACADEMY</p><h1>Learn. Practise. <span>Grow.</span></h1><p>Explore practical courses, follow lessons at your pace and build useful digital skills.</p></div><div class="welcome-mark">JTM<span>+</span></div></section>
-<section id="authPanel" class="auth-panel panel"><div><p class="eyebrow">STUDENT & ADMIN ACCESS</p><h2>Sign in to your learning space</h2><p class="muted">Create a student account or sign in. In demo preview, use the demo buttons to explore both dashboards.</p></div><form id="authForm" class="auth-form"><label>Email address<input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" required></label><label>Password<input id="authPassword" type="password" autocomplete="current-password" minlength="6" placeholder="At least 6 characters" required></label><div class="auth-buttons"><button class="btn primary" type="submit" id="signInBtn">Sign in</button><button class="btn secondary" type="button" id="signUpBtn">Create student account</button></div><p id="authMessage" class="message" aria-live="polite"></p></form><div class="demo-access"><strong>Preview the portal</strong><span>Explore sample screens without creating an account.</span><div><button class="btn secondary" id="demoStudent">Student preview</button><button class="btn secondary" id="demoAdmin">Admin preview</button></div></div></section>
-<section id="appPanel" hidden>
-<div class="dash-head"><div><p class="eyebrow" id="dashEyebrow">YOUR LEARNING</p><h2 id="dashTitle">Student dashboard</h2><p class="muted" id="dashSubtitle">Continue learning where you left off.</p></div><div class="dash-actions"><button class="btn secondary" id="switchRole" hidden>Switch preview</button><button class="btn secondary" id="signOutBtn">Sign out</button></div></div>
-<nav class="tabs" id="tabs"><button class="tab active" data-tab="overview">Overview</button><button class="tab" data-tab="catalogue">Course catalogue</button><button class="tab" data-tab="mycourses">My learning</button><button class="tab admin-only" data-tab="manage" hidden>Manage courses</button><button class="tab admin-only" data-tab="students" hidden>Students</button></nav>
-<section class="tab-content" id="tab-overview"><div class="stats" id="stats"></div><div class="content-grid"><div class="panel"><div class="panel-heading"><div><p class="eyebrow">KEEP GOING</p><h3>Continue learning</h3></div><button class="text-btn" data-goto="mycourses">View all →</button></div><div id="continueList" class="course-list"></div></div><aside class="panel tip-panel"><div class="tip-icon">✦</div><h3>Your learning journey</h3><p>Work through each lesson, complete the practice quiz and keep building your skills one topic at a time.</p><div class="tip-foot">JTM · TECHNOLOGY · INNOVATION · EDUCATION</div></aside></div></section>
-<section class="tab-content" id="tab-catalogue" hidden><div class="section-title"><div><p class="eyebrow">EXPLORE</p><h3>Available courses</h3></div><div class="filters"><button class="filter active" data-course-filter="all">All</button><button class="filter" data-course-filter="free">Free</button><button class="filter" data-course-filter="premium">Premium</button></div></div><div id="catalogueGrid" class="course-grid"></div></section>
-<section class="tab-content" id="tab-mycourses" hidden><div class="section-title"><div><p class="eyebrow">YOUR PROGRESS</p><h3>My learning</h3></div></div><div id="myCourseGrid" class="course-grid"></div></section>
-<section class="tab-content" id="tab-manage" hidden><div class="content-grid admin-grid"><div class="panel"><p class="eyebrow">COURSE BUILDER</p><h3>Create a course</h3><form id="courseForm" class="stack-form"><label>Course title<input name="title" required placeholder="e.g. Cybersecurity Foundations"></label><label>Short description<textarea name="description" rows="3" required placeholder="What will students learn?"></textarea></label><div class="two-fields"><label>Access<select name="access"><option value="free">Free</option><option value="premium">Premium</option></select></label><label>Level<select name="level"><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select></label></div><label>Category<input name="category" placeholder="e.g. Cybersecurity"></label><label>Price (GHS, display only while payments are disabled)<input name="price" type="number" min="0" step="0.01" value="0"></label><label class="checkline"><input name="published" type="checkbox"> Publish course in catalogue</label><button class="btn primary" type="submit">Create course</button><p class="message" id="courseMessage"></p></form></div><div class="panel"><p class="eyebrow">CONTENT MANAGEMENT</p><h3>Your courses</h3><p class="muted">Choose a course to add modules, lessons, resources and quizzes.</p><div id="adminCourseList" class="admin-course-list"></div></div></div><div id="courseEditor" class="panel editor-panel" hidden></div></section>
-<section class="tab-content" id="tab-students" hidden><div class="panel"><p class="eyebrow">ACADEMY ADMINISTRATION</p><h3>Student enrolments</h3><p class="muted">Student records are available here when the Supabase backend is connected and students have enrolled.</p><div id="studentTable" class="table-wrap"></div></div></section>
-</section>
-<section id="lessonView" class="panel lesson-view" hidden></section>
+
+  <section id="welcome" class="welcome">
+    <div>
+      <p class="eyebrow">JTM DIGITAL ACADEMY</p>
+      <h1>Learn. Practise. <span>Grow.</span></h1>
+      <p>Explore practical courses, follow lessons at your pace and build useful digital skills.</p>
+    </div>
+    <div class="welcome-mark">JTM<span>+</span></div>
+  </section>
+
+  <!-- ONE LOGIN PAGE FOR STUDENTS AND ADMIN -->
+  <section id="authPanel" class="auth-panel panel">
+    <div>
+      <p class="eyebrow">STUDENT &amp; ADMIN ACCESS</p>
+      <h2>Sign in to your learning space</h2>
+      <p class="muted">
+        Sign in to access your dashboard. New students can create an account here.
+      </p>
+    </div>
+
+    <form id="authForm" class="auth-form">
+      <label>Email address
+        <input id="authEmail" type="email" autocomplete="username"
+          placeholder="you@example.com" required>
+      </label>
+
+      <label>Password
+        <input id="authPassword" type="password"
+          autocomplete="current-password" minlength="6"
+          placeholder="At least 6 characters" required>
+      </label>
+
+      <div class="auth-buttons">
+        <button class="btn primary" type="submit" id="signInBtn">
+          Sign in
+        </button>
+
+        <button class="btn secondary" type="button" id="signUpBtn">
+          Create student account
+        </button>
+      </div>
+
+      <p id="authMessage" class="message" aria-live="polite"></p>
+    </form>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section id="appPanel" hidden>
+
+    <div class="dash-head">
+      <div>
+        <p class="eyebrow" id="dashEyebrow">YOUR LEARNING</p>
+        <h2 id="dashTitle">Student dashboard</h2>
+        <p class="muted" id="dashSubtitle"></p>
+      </div>
+
+      <div class="dash-actions">
+        <button class="btn secondary" id="refreshBtn" type="button">
+          Refresh
+        </button>
+        <button class="btn secondary" id="signOutBtn" type="button">
+          Sign out
+        </button>
+      </div>
+    </div>
+
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="overview" type="button">Overview</button>
+      <button class="tab" data-tab="catalogue" type="button">Course catalogue</button>
+      <button class="tab" data-tab="mycourses" type="button">My learning</button>
+
+      <button class="tab admin-only" data-tab="manage"
+        type="button" hidden>Manage courses</button>
+
+      <button class="tab admin-only" data-tab="students"
+        type="button" hidden>Students</button>
+    </nav>
+
+    <!-- OVERVIEW -->
+    <section class="tab-content" id="tab-overview">
+      <div class="stats" id="stats"></div>
+
+      <div class="content-grid">
+        <div class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">KEEP GOING</p>
+              <h3>Continue learning</h3>
+            </div>
+            <button class="text-btn" data-goto="mycourses" type="button">
+              View all →
+            </button>
+          </div>
+
+          <div id="continueList" class="course-list"></div>
+        </div>
+
+        <aside class="panel tip-panel">
+          <div class="tip-icon">✦</div>
+          <h3>Your learning journey</h3>
+          <p>
+            Work through each lesson, complete the available practice
+            and keep building your skills one topic at a time.
+          </p>
+          <div class="tip-foot">
+            JTM · TECHNOLOGY · INNOVATION · EDUCATION
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- COURSE CATALOGUE -->
+    <section class="tab-content" id="tab-catalogue" hidden>
+      <div class="section-title">
+        <div>
+          <p class="eyebrow">EXPLORE</p>
+          <h3>Available courses</h3>
+        </div>
+
+        <div class="filters">
+          <button class="filter active" data-course-filter="all" type="button">All</button>
+          <button class="filter" data-course-filter="free" type="button">Free</button>
+          <button class="filter" data-course-filter="premium" type="button">Premium</button>
+        </div>
+      </div>
+
+      <div id="catalogueGrid" class="course-grid"></div>
+    </section>
+
+    <!-- MY LEARNING -->
+    <section class="tab-content" id="tab-mycourses" hidden>
+      <div class="section-title">
+        <div>
+          <p class="eyebrow">YOUR PROGRESS</p>
+          <h3>My learning</h3>
+        </div>
+      </div>
+
+      <div id="myCourseGrid" class="course-grid"></div>
+    </section>
+
+    <!-- ADMIN COURSE MANAGEMENT -->
+    <section class="tab-content" id="tab-manage" hidden>
+      <div class="content-grid admin-grid">
+
+        <div class="panel">
+          <p class="eyebrow">COURSE BUILDER</p>
+          <h3>Create a course</h3>
+
+          <form id="courseForm" class="stack-form">
+            <label>Course title
+              <input name="title" required maxlength="140"
+                placeholder="e.g. Cybersecurity Foundations">
+            </label>
+
+            <label>Short description
+              <textarea name="description" rows="3" required
+                maxlength="1200" placeholder="What will students learn?"></textarea>
+            </label>
+
+            <div class="two-fields">
+              <label>Access
+                <select name="access">
+                  <option value="free">Free</option>
+                  <option value="premium">Premium</option>
+                </select>
+              </label>
+
+              <label>Level
+                <select name="level">
+                  <option>Beginner</option>
+                  <option>Intermediate</option>
+                  <option>Advanced</option>
+                </select>
+              </label>
+            </div>
+
+            <label>Category
+              <input name="category" maxlength="80"
+                placeholder="e.g. Cybersecurity">
+            </label>
+
+            <label>Price (GHS, display only while payments are disabled)
+              <input name="price" type="number" min="0"
+                step="0.01" value="0">
+            </label>
+
+            <label class="checkline">
+              <input name="published" type="checkbox">
+              Publish course in catalogue
+            </label>
+
+            <button class="btn primary" type="submit">
+              Create course
+            </button>
+
+            <p class="message" id="courseMessage" aria-live="polite"></p>
+          </form>
+        </div>
+
+        <div class="panel">
+          <p class="eyebrow">CONTENT MANAGEMENT</p>
+          <h3>Your courses</h3>
+          <p class="muted">
+            Select a course to add modules and lessons or change its publication status.
+          </p>
+          <div id="adminCourseList" class="admin-course-list"></div>
+        </div>
+      </div>
+
+      <div id="courseEditor" class="panel editor-panel" hidden></div>
+    </section>
+
+    <!-- ADMIN STUDENT RECORDS -->
+    <section class="tab-content" id="tab-students" hidden>
+      <div class="panel">
+        <p class="eyebrow">ACADEMY ADMINISTRATION</p>
+        <h3>Student records</h3>
+        <p class="muted">
+          Student profiles and enrolments are shown here.
+        </p>
+        <div id="studentTable" class="table-wrap"></div>
+      </div>
+    </section>
+
+  </section>
+
+  <!-- LESSON VIEW -->
+  <section id="lessonView" class="panel lesson-view" hidden></section>
+
 </main>
+
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
-<footer class="portal-footer"><span>© <span id="year"></span> JOSH TECH MEDIA</span><span>Learn responsibly · Keep practising</span></footer>
+
+<footer class="portal-footer">
+  <span>© <span id="year"></span> JOSH TECH MEDIA</span>
+  <span>Learn responsibly · Keep practising</span>
+</footer>
+
 <script src="lms.js"></script>
-</body></html>
+</body>
+</html>
