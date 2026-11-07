@@ -47,7 +47,8 @@
     courses: [],
     enrollments: [],
     progress: [],
-    filter: 'all'
+    filter: 'all',
+    paymentReturnHandled: false
   };
 
   // --------------------------------
@@ -261,6 +262,84 @@
   }
 
   // --------------------------------
+  // PAYSTACK TEST PAYMENTS
+  // --------------------------------
+
+  async function startPremiumPayment(courseId, button) {
+    const course = state.courses.find(item => item.id === courseId);
+
+    if (!course || course.access !== 'premium') {
+      toast('This is not a premium course.');
+      return;
+    }
+
+    if (Number(course.price) <= 0) {
+      toast('Ask the administrator to set a valid course price.');
+      return;
+    }
+
+    setBusy(button, true, 'Starting secure checkout…');
+
+    try {
+      const { data, error } = await sb.functions.invoke(
+        'create-paystack-payment',
+        { body: { course_id: courseId } }
+      );
+
+      if (error) throw error;
+      if (!data?.authorization_url) {
+        throw new Error(data?.error || 'Paystack did not return a checkout link.');
+      }
+
+      window.location.assign(data.authorization_url);
+    } catch (error) {
+      toast(error.message || 'Could not start payment.');
+      setBusy(button, false);
+    }
+  }
+
+  async function verifyPaymentReturn() {
+    if (state.paymentReturnHandled || !sb) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const reference = params.get('reference') || params.get('trxref');
+
+    if (!reference) return;
+
+    state.paymentReturnHandled = true;
+    toast('Checking your payment with Paystack…');
+
+    try {
+      const { data, error } = await sb.functions.invoke(
+        'verify-paystack-payment',
+        { body: { reference } }
+      );
+
+      if (error) throw error;
+
+      if (data?.success === true) {
+        params.delete('reference');
+        params.delete('trxref');
+        const query = params.toString();
+        const cleanUrl = window.location.pathname +
+          (query ? `?${query}` : '') +
+          window.location.hash;
+        window.history.replaceState({}, document.title, cleanUrl);
+
+        await loadRemote();
+        showTab('mycourses');
+        toast('Payment confirmed. Your course is now available.');
+      } else {
+        state.paymentReturnHandled = false;
+        toast(data?.message || 'Payment is not confirmed yet. Refresh and try again shortly.');
+      }
+    } catch (error) {
+      state.paymentReturnHandled = false;
+      toast(error.message || 'Could not verify payment. Please try again.');
+    }
+  }
+
+  // --------------------------------
   // COURSE HELPERS
   // --------------------------------
 
@@ -295,12 +374,19 @@
           data-enrol="${esc(course.id)}">
           Enrol free
         </button>`;
+    } else if (course.access === 'premium' && state.role === 'admin') {
+      action = `
+        <button class="btn primary"
+          type="button"
+          data-open-course="${esc(course.id)}">
+          Preview course
+        </button>`;
     } else {
       action = `
-        <button class="btn secondary"
+        <button class="btn primary"
           type="button"
-          disabled>
-          Premium · Coming soon
+          data-buy-course="${esc(course.id)}">
+          Buy course
         </button>`;
     }
 
@@ -1352,6 +1438,7 @@
         state.user = data.user;
 
         await loadRemote();
+        await verifyPaymentReturn();
 
         showMessage('#authMessage', '');
 
@@ -1521,6 +1608,18 @@
         return;
       }
 
+      const buyButton = event.target.closest(
+        '[data-buy-course]'
+      );
+
+      if (buyButton) {
+        await startPremiumPayment(
+          buyButton.dataset.buyCourse,
+          buyButton
+        );
+        return;
+      }
+
       const openButton = event.target.closest(
         '[data-open-course]'
       );
@@ -1667,6 +1766,7 @@
 
           try {
             await loadRemote();
+            await verifyPaymentReturn();
           } catch (err) {
             showMessage(
               '#authMessage',
