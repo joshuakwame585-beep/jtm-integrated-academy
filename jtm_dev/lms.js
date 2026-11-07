@@ -1,11 +1,16 @@
 
 /* JTM DIGITAL ACADEMY
    Student and administrator portal.
-   Includes secure video and PDF uploads through Supabase Storage.
+   Supabase: authentication, database and existing media.
+   DBByte: new video and PDF uploads through Cloudflare Worker.
 */
 
 (() => {
   'use strict';
+
+  // --------------------------------
+  // CONFIGURATION
+  // --------------------------------
 
   const $ = selector => document.querySelector(selector);
   const $$ = selector => [...document.querySelectorAll(selector)];
@@ -26,8 +31,15 @@
     ? window.supabase.createClient(url, key)
     : null;
 
+  // Existing Supabase media bucket.
   const STORAGE_BUCKET = 'course-media';
-  const MAX_FILE_SIZE = 524288000;
+
+  // Cloudflare Worker connected to DBByte.
+  const STORAGE_API =
+    'https://jtm-storage-api.kwamejoshua703.workers.dev';
+
+  // DBByte Free plan limit.
+  const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
   const state = {
     user: null,
@@ -37,6 +49,10 @@
     progress: [],
     filter: 'all'
   };
+
+  // --------------------------------
+  // GENERAL HELPERS
+  // --------------------------------
 
   function esc(value) {
     return String(value ?? '').replace(/[&<>"']/g, ch => ({
@@ -50,6 +66,7 @@
 
   function showMessage(selector, text, error = false) {
     const element = $(selector);
+
     if (!element) return;
 
     element.textContent = text;
@@ -58,6 +75,7 @@
 
   function toast(text) {
     const element = $('#toast');
+
     if (!element) return;
 
     element.textContent = text;
@@ -97,14 +115,21 @@
     }
 
     $$('.tab').forEach(button => {
-      button.classList.toggle('active', button.dataset.tab === tab);
+      button.classList.toggle(
+        'active',
+        button.dataset.tab === tab
+      );
     });
 
     $$('.tab-content').forEach(panel => {
       panel.hidden = panel.id !== `tab-${tab}`;
     });
 
-    $('#lessonView').hidden = true;
+    const lessonView = $('#lessonView');
+
+    if (lessonView) {
+      lessonView.hidden = true;
+    }
 
     if (tab === 'overview') renderOverview();
     if (tab === 'catalogue') renderCatalogue();
@@ -152,6 +177,10 @@
     showMessage('#authMessage', '');
   }
 
+  // --------------------------------
+  // SUPABASE AUTHENTICATION
+  // --------------------------------
+
   async function identifyRole() {
     const { data, error } = await sb
       .from('admin_users')
@@ -167,15 +196,16 @@
   async function loadRemote() {
     await identifyRole();
 
-    const [coursesResult, enrollmentsResult] = await Promise.all([
-      sb.from('courses')
-        .select('*')
-        .order('created_at', { ascending: false }),
+    const [coursesResult, enrollmentsResult] =
+      await Promise.all([
+        sb.from('courses')
+          .select('*')
+          .order('created_at', { ascending: false }),
 
-      sb.from('enrollments')
-        .select('*')
-        .order('enrolled_at', { ascending: false })
-    ]);
+        sb.from('enrollments')
+          .select('*')
+          .order('enrolled_at', { ascending: false })
+      ]);
 
     if (coursesResult.error) throw coursesResult.error;
     if (enrollmentsResult.error) throw enrollmentsResult.error;
@@ -183,7 +213,9 @@
     state.courses = coursesResult.data || [];
     state.enrollments = enrollmentsResult.data || [];
 
-    const enrollmentIds = state.enrollments.map(row => row.id);
+    const enrollmentIds = state.enrollments.map(
+      row => row.id
+    );
 
     if (enrollmentIds.length) {
       const progressResult = await sb
@@ -191,7 +223,9 @@
         .select('*')
         .in('enrollment_id', enrollmentIds);
 
-      if (progressResult.error) throw progressResult.error;
+      if (progressResult.error) {
+        throw progressResult.error;
+      }
 
       state.progress = progressResult.data || [];
     } else {
@@ -211,6 +245,24 @@
       toast(error.message || 'Could not refresh data.');
     }
   }
+
+  async function getAccessToken() {
+    const { data, error } = await sb.auth.getSession();
+
+    if (error) throw error;
+
+    const token = data.session?.access_token;
+
+    if (!token) {
+      throw new Error('Please sign in again.');
+    }
+
+    return token;
+  }
+
+  // --------------------------------
+  // COURSE HELPERS
+  // --------------------------------
 
   function enrolledCourseIds() {
     return new Set(
@@ -245,7 +297,9 @@
         </button>`;
     } else {
       action = `
-        <button class="btn secondary" type="button" disabled>
+        <button class="btn secondary"
+          type="button"
+          disabled>
           Premium · Coming soon
         </button>`;
     }
@@ -254,7 +308,9 @@
       <article class="course-card">
         <div class="course-card-top">
           <span class="badge">${esc(access)}</span>
-          <span class="muted">${esc(course.level || 'Beginner')}</span>
+          <span class="muted">
+            ${esc(course.level || 'Beginner')}
+          </span>
         </div>
 
         <h3>${esc(course.title)}</h3>
@@ -262,6 +318,7 @@
 
         <div class="course-meta">
           <span>${esc(course.category || 'General')}</span>
+
           ${Number(course.price) > 0
             ? `<span>GHS ${Number(course.price).toFixed(2)}</span>`
             : ''}
@@ -365,6 +422,10 @@
     showTab('mycourses');
   }
 
+  // --------------------------------
+  // OPEN COURSE AND LESSONS
+  // --------------------------------
+
   async function openCourse(courseId) {
     const course = state.courses.find(
       item => item.id === courseId
@@ -394,7 +455,9 @@
       return;
     }
 
-    const moduleIds = (modules || []).map(row => row.id);
+    const moduleIds = (modules || []).map(
+      row => row.id
+    );
 
     let lessons = [];
 
@@ -414,11 +477,16 @@
     }
 
     $('#lessonView').innerHTML = `
-      <button class="text-btn" type="button" id="backToLearning">
+      <button class="text-btn"
+        type="button"
+        id="backToLearning">
         ← Back to dashboard
       </button>
 
-      <p class="eyebrow">${esc(course.category || 'COURSE')}</p>
+      <p class="eyebrow">
+        ${esc(course.category || 'COURSE')}
+      </p>
+
       <h2>${esc(course.title)}</h2>
       <p>${esc(course.description || '')}</p>
 
@@ -448,11 +516,14 @@
                               data-lesson="${esc(lesson.id)}"
                               data-course="${esc(courseId)}">
 
-                              <span>${done ? '✓' : '○'}
+                              <span>
+                                ${done ? '✓' : '○'}
                                 ${esc(lesson.title)}
                               </span>
 
-                              <small>${esc(lesson.duration || 'Self-paced')}</small>
+                              <small>
+                                ${esc(lesson.duration || 'Self-paced')}
+                              </small>
                             </button>`;
                         }).join('')
                       : '<p class="muted">Lessons will be added soon.</p>'
@@ -468,36 +539,95 @@
     $('#lessonView').hidden = false;
   }
 
-  // Create a temporary secure URL for a private Storage file.
-  async function getMediaUrl(path) {
+  // --------------------------------
+  // SUPABASE + DBBYTE MEDIA ACCESS
+  // --------------------------------
+
+  /*
+    Existing Supabase paths contain slashes.
+    New DBByte filenames are stored as plain filenames.
+
+    This lets old course materials continue working.
+  */
+
+  async function getMediaUrl(path, lessonId, type) {
     if (!path) return null;
 
-    const { data, error } = await sb.storage
-      .from(STORAGE_BUCKET)
-      .createSignedUrl(path, 3600);
+    // OLD FILE: retrieve from Supabase Storage.
+    if (path.includes('/')) {
+      const { data, error } = await sb.storage
+        .from(STORAGE_BUCKET)
+        .createSignedUrl(path, 3600);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    return data.signedUrl;
-  }
-
-  // Validate media before uploading.
-  function validateMedia(file, type) {
-    if (!file) return;
-
-    if (file.size > MAX_FILE_SIZE) {
-      throw new Error('File is too large. Maximum size is 500 MB.');
+      return data.signedUrl;
     }
 
-    const extension = file.name.split('.').pop().toLowerCase();
+    // NEW FILE: retrieve through the Cloudflare Worker.
+    const token = await getAccessToken();
+
+    const response = await fetch(
+      `${STORAGE_API}/media-url`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          lessonId,
+          type
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.error || 'Could not access lesson media.'
+      );
+    }
+
+    if (!result.url) {
+      throw new Error('The media URL was not returned.');
+    }
+
+    return result.url;
+  }
+
+  // --------------------------------
+  // MEDIA VALIDATION
+  // --------------------------------
+
+  function validateMedia(file, type) {
+    if (!file || file.size === 0) return;
+
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error(
+        'File is too large. Maximum size is 100 MB.'
+      );
+    }
+
+    const extension = file.name
+      .split('.')
+      .pop()
+      .toLowerCase();
 
     if (type === 'video') {
       const valid =
         ['mp4', 'webm', 'mov'].includes(extension) &&
-        ['video/mp4', 'video/webm', 'video/quicktime'].includes(file.type);
+        [
+          'video/mp4',
+          'video/webm',
+          'video/quicktime'
+        ].includes(file.type);
 
       if (!valid) {
-        throw new Error('Choose an MP4, WebM or MOV video file.');
+        throw new Error(
+          'Choose an MP4, WebM or MOV video file.'
+        );
       }
     }
 
@@ -511,51 +641,75 @@
     }
   }
 
-  function safeFileName(name) {
-    return name
-      .normalize('NFKD')
-      .replace(/[^a-zA-Z0-9._-]/g, '-')
-      .replace(/-+/g, '-')
-      .slice(-120);
-  }
+  // --------------------------------
+  // UPLOAD NEW MEDIA TO DBBYTE
+  // --------------------------------
 
   async function uploadMedia(file, courseId, moduleId, type) {
-    if (!file) return null;
+    if (!file || file.size === 0) return null;
 
     validateMedia(file, type);
 
-    const uniqueId = crypto.randomUUID
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const token = await getAccessToken();
 
-    const filename = safeFileName(file.name);
+    const form = new FormData();
 
-    const path = `${courseId}/${moduleId}/${type}-${uniqueId}-${filename}`;
+    form.append('file', file, file.name);
+    form.append('courseId', courseId);
+    form.append('moduleId', moduleId);
 
-    const { error } = await sb.storage
-      .from(STORAGE_BUCKET)
-      .upload(path, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: file.type
-      });
+    // The Worker expects "resource" for PDF files.
+    form.append(
+      'type',
+      type === 'pdf' ? 'resource' : type
+    );
 
-    if (error) throw error;
+    const response = await fetch(
+      `${STORAGE_API}/upload`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: form
+      }
+    );
 
-    return path;
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.error || 'DBByte upload failed.'
+      );
+    }
+
+    if (!result.path) {
+      throw new Error(
+        'The upload succeeded but no file path was returned.'
+      );
+    }
+
+    return result.path;
   }
+
+  /*
+    DBByte deletion is not enabled in the current bucket permissions.
+    This function intentionally does not attempt Supabase deletion.
+  */
 
   async function removeUploadedMedia(paths) {
-    const validPaths = paths.filter(Boolean);
-
-    if (!validPaths.length) return;
-
-    await sb.storage
-      .from(STORAGE_BUCKET)
-      .remove(validPaths);
+    if (paths && paths.length) {
+      console.warn(
+        'DBByte files may remain if saving the lesson failed. ' +
+        'Deletion has not been enabled.'
+      );
+    }
   }
 
-  // OPEN LESSON WITH VIDEO AND PDF SUPPORT
+  // --------------------------------
+  // OPEN LESSON WITH VIDEO AND PDF
+  // --------------------------------
+
   async function openLesson(lessonId, courseId) {
     const { data: lesson, error } = await sb
       .from('lessons')
@@ -573,14 +727,24 @@
 
     try {
       if (lesson.video_path) {
-        videoUrl = await getMediaUrl(lesson.video_path);
+        videoUrl = await getMediaUrl(
+          lesson.video_path,
+          lesson.id,
+          'video'
+        );
       }
 
       if (lesson.resource_path) {
-        pdfUrl = await getMediaUrl(lesson.resource_path);
+        pdfUrl = await getMediaUrl(
+          lesson.resource_path,
+          lesson.id,
+          'resource'
+        );
       }
     } catch (mediaError) {
-      toast(`Could not load course material: ${mediaError.message}`);
+      toast(
+        `Could not load course material: ${mediaError.message}`
+      );
       return;
     }
 
@@ -588,8 +752,11 @@
       ? `
         <section class="lesson-media">
           <h4>Lesson video</h4>
+
           <div class="video-frame">
-            <video controls playsinline preload="metadata">
+            <video controls
+              playsinline
+              preload="metadata">
               <source src="${esc(videoUrl)}">
               Your browser does not support video playback.
             </video>
@@ -601,6 +768,7 @@
       ? `
         <section class="lesson-media pdf-resource">
           <h4>Reading material</h4>
+
           <iframe
             class="pdf-frame"
             src="${esc(pdfUrl)}"
@@ -622,8 +790,10 @@
         <h3>${esc(lesson.title)}</h3>
 
         <div class="lesson-body">
-          ${esc(lesson.body || 'No reading material has been added yet.')
-            .replace(/\n/g, '<br>')}
+          ${esc(
+            lesson.body ||
+            'No reading material has been added yet.'
+          ).replace(/\n/g, '<br>')}
         </div>
 
         ${videoSection}
@@ -643,6 +813,10 @@
       block: 'start'
     });
   }
+
+  // --------------------------------
+  // LESSON PROGRESS
+  // --------------------------------
 
   async function completeLesson(lessonId, courseId) {
     const enrollment = state.enrollments.find(
@@ -694,7 +868,10 @@
     await openCourse(courseId);
   }
 
+  // --------------------------------
   // ADMIN COURSE MANAGEMENT
+  // --------------------------------
+
   function renderAdminCourses() {
     const courses = state.courses;
 
@@ -703,6 +880,7 @@
           <div class="admin-course-row">
             <div>
               <strong>${esc(course.title)}</strong>
+
               <small>
                 ${course.published ? 'Published' : 'Draft'}
                 · ${esc(course.access)}
@@ -737,15 +915,21 @@
       <p class="eyebrow">COURSE CONTENT</p>
       <h3>${esc(course.title)}</h3>
 
-      <button class="btn secondary" type="button" id="togglePublish">
-        ${course.published ? 'Unpublish course' : 'Publish course'}
+      <button class="btn secondary"
+        type="button"
+        id="togglePublish">
+        ${course.published
+          ? 'Unpublish course'
+          : 'Publish course'}
       </button>
 
       <form id="moduleForm" class="stack-form">
         <h4>Add a module</h4>
 
         <label>Module title
-          <input name="title" required maxlength="140"
+          <input name="title"
+            required
+            maxlength="140"
             placeholder="e.g. Introduction">
         </label>
 
@@ -763,50 +947,68 @@
       block: 'start'
     });
 
-    $('#togglePublish').addEventListener('click', async () => {
-      const { error } = await sb
-        .from('courses')
-        .update({ published: !course.published })
-        .eq('id', courseId);
+    $('#togglePublish').addEventListener(
+      'click',
+      async () => {
+        const { error } = await sb
+          .from('courses')
+          .update({
+            published: !course.published
+          })
+          .eq('id', courseId);
 
-      if (error) {
-        toast(error.message);
-        return;
+        if (error) {
+          toast(error.message);
+          return;
+        }
+
+        toast('Course publication updated.');
+
+        await loadRemote();
+        showTab('manage');
+        await editCourse(courseId);
       }
+    );
 
-      toast('Course publication updated.');
+    $('#moduleForm').addEventListener(
+      'submit',
+      async event => {
+        event.preventDefault();
 
-      await loadRemote();
-      showTab('manage');
-      await editCourse(courseId);
-    });
+        const form = event.currentTarget;
 
-    $('#moduleForm').addEventListener('submit', async event => {
-      event.preventDefault();
+        const title = new FormData(form)
+          .get('title')
+          .toString()
+          .trim();
 
-      const form = event.currentTarget;
-      const title = new FormData(form).get('title').toString().trim();
+        const { error } = await sb
+          .from('modules')
+          .insert({
+            course_id: courseId,
+            title
+          });
 
-      const { error } = await sb.from('modules').insert({
-        course_id: courseId,
-        title
-      });
+        if (error) {
+          toast(error.message);
+          return;
+        }
 
-      if (error) {
-        toast(error.message);
-        return;
+        form.reset();
+
+        toast('Module added.');
+
+        await renderModuleManager(courseId);
       }
-
-      form.reset();
-      toast('Module added.');
-
-      await renderModuleManager(courseId);
-    });
+    );
 
     await renderModuleManager(courseId);
   }
 
+  // --------------------------------
   // ADMIN MODULE AND LESSON MANAGER
+  // --------------------------------
+
   async function renderModuleManager(courseId) {
     const target = $('#moduleManager');
 
@@ -823,21 +1025,27 @@
       return;
     }
 
-    if (!modules.length) {
-      target.innerHTML = '<p class="muted">No modules yet.</p>';
+    if (!modules || !modules.length) {
+      target.innerHTML =
+        '<p class="muted">No modules yet.</p>';
       return;
     }
 
     const { data: lessons, error: lessonError } = await sb
       .from('lessons')
       .select('*')
-      .in('module_id', modules.map(module => module.id))
+      .in(
+        'module_id',
+        modules.map(module => module.id)
+      )
       .order('position');
 
     if (lessonError) {
       target.textContent = lessonError.message;
       return;
     }
+
+    const lessonRows = lessons || [];
 
     target.innerHTML = modules.map(module => `
       <div class="module-admin">
@@ -847,17 +1055,22 @@
           data-module-id="${esc(module.id)}">
 
           <label>Lesson title
-            <input name="title" required maxlength="140"
+            <input name="title"
+              required
+              maxlength="140"
               placeholder="Lesson title">
           </label>
 
           <label>Lesson reading content
-            <textarea name="body" rows="4"
+            <textarea name="body"
+              rows="4"
               placeholder="Write lesson notes here"></textarea>
           </label>
 
           <label>Duration
-            <input name="duration" value="Self-paced" maxlength="50">
+            <input name="duration"
+              value="Self-paced"
+              maxlength="50">
           </label>
 
           <label>Upload lesson video
@@ -868,7 +1081,8 @@
           </label>
 
           <small class="muted">
-            Supported formats: MP4, WebM and MOV. Maximum 500 MB.
+            Supported formats: MP4, WebM and MOV.
+            Maximum 100 MB.
           </small>
 
           <label>Upload PDF reading material
@@ -879,7 +1093,7 @@
           </label>
 
           <small class="muted">
-            PDF files only. Maximum 500 MB.
+            PDF files only. Maximum 100 MB.
           </small>
 
           <button class="btn secondary" type="submit">
@@ -889,126 +1103,162 @@
 
         <ul>
           ${
-            lessons.filter(lesson => lesson.module_id === module.id)
+            lessonRows
+              .filter(lesson =>
+                lesson.module_id === module.id
+              )
               .map(lesson => `
                 <li>
                   ${esc(lesson.title)}
                   ${lesson.video_path ? ' · Video' : ''}
                   ${lesson.resource_path ? ' · PDF' : ''}
                 </li>
-              `).join('') || '<li class="muted">No lessons yet.</li>'
+              `).join('') ||
+              '<li class="muted">No lessons yet.</li>'
           }
         </ul>
       </div>
     `).join('');
 
     $$('.lessonForm').forEach(form => {
-      form.addEventListener('submit', async event => {
-        event.preventDefault();
+      form.addEventListener(
+        'submit',
+        async event => {
+          event.preventDefault();
 
-        if (state.role !== 'admin') {
-          toast('Administrator access is required.');
-          return;
-        }
-
-        const fd = new FormData(form);
-        const button = form.querySelector('button[type="submit"]');
-
-        const title = String(fd.get('title') || '').trim();
-        const body = String(fd.get('body') || '');
-        const duration = String(fd.get('duration') || 'Self-paced');
-
-        const videoFile = fd.get('videoFile');
-        const resourceFile = fd.get('resourceFile');
-
-        if (!title) {
-          toast('Enter a lesson title.');
-          return;
-        }
-
-        const uploadedPaths = [];
-
-        setBusy(button, true, 'Uploading lesson…');
-
-        try {
-          // Validate both files before uploading either.
-          validateMedia(videoFile, 'video');
-          validateMedia(resourceFile, 'pdf');
-
-          const moduleId = form.dataset.moduleId;
-
-          let videoPath = null;
-          let resourcePath = null;
-
-          if (videoFile && videoFile.size > 0) {
-            videoPath = await uploadMedia(
-              videoFile,
-              courseId,
-              moduleId,
-              'video'
-            );
-
-            uploadedPaths.push(videoPath);
+          if (state.role !== 'admin') {
+            toast('Administrator access is required.');
+            return;
           }
 
-          if (resourceFile && resourceFile.size > 0) {
-            resourcePath = await uploadMedia(
-              resourceFile,
-              courseId,
-              moduleId,
-              'pdf'
-            );
+          const fd = new FormData(form);
 
-            uploadedPaths.push(resourcePath);
+          const button = form.querySelector(
+            'button[type="submit"]'
+          );
+
+          const title = String(
+            fd.get('title') || ''
+          ).trim();
+
+          const body = String(
+            fd.get('body') || ''
+          );
+
+          const duration = String(
+            fd.get('duration') || 'Self-paced'
+          );
+
+          const videoFile = fd.get('videoFile');
+          const resourceFile = fd.get('resourceFile');
+
+          if (!title) {
+            toast('Enter a lesson title.');
+            return;
           }
 
-          const { error: insertError } = await sb
-            .from('lessons')
-            .insert({
-              module_id: moduleId,
-              title,
-              body,
-              duration,
-              video_path: videoPath,
-              resource_path: resourcePath,
-              published: true
-            });
+          const uploadedPaths = [];
 
-          if (insertError) throw insertError;
+          setBusy(button, true, 'Uploading lesson…');
 
-          toast('Lesson and learning materials added successfully.');
+          try {
+            // Validate both files before uploading either.
+            validateMedia(videoFile, 'video');
+            validateMedia(resourceFile, 'pdf');
 
-          await renderModuleManager(courseId);
+            const moduleId = form.dataset.moduleId;
 
-        } catch (error) {
-          // Clean up uploaded files if the lesson was not saved.
-          await removeUploadedMedia(uploadedPaths);
+            let videoPath = null;
+            let resourcePath = null;
 
-          toast(error.message || 'Could not add lesson.');
+            if (videoFile && videoFile.size > 0) {
+              videoPath = await uploadMedia(
+                videoFile,
+                courseId,
+                moduleId,
+                'video'
+              );
 
-        } finally {
-          setBusy(button, false);
+              uploadedPaths.push(videoPath);
+            }
+
+            if (resourceFile && resourceFile.size > 0) {
+              resourcePath = await uploadMedia(
+                resourceFile,
+                courseId,
+                moduleId,
+                'pdf'
+              );
+
+              uploadedPaths.push(resourcePath);
+            }
+
+            const { error: insertError } = await sb
+              .from('lessons')
+              .insert({
+                module_id: moduleId,
+                title,
+                body,
+                duration,
+                video_path: videoPath,
+                resource_path: resourcePath,
+                published: true
+              });
+
+            if (insertError) {
+              throw insertError;
+            }
+
+            toast(
+              'Lesson and learning materials added successfully.'
+            );
+
+            await renderModuleManager(courseId);
+
+          } catch (error) {
+            await removeUploadedMedia(uploadedPaths);
+
+            let message =
+              error.message || 'Could not add lesson.';
+
+            if (uploadedPaths.length) {
+              message +=
+                ' An uploaded DBByte file may remain in your bucket.';
+            }
+
+            toast(message);
+
+          } finally {
+            setBusy(button, false);
+          }
         }
-      });
+      );
     });
   }
 
+  // --------------------------------
   // ADMIN STUDENT RECORDS
+  // --------------------------------
+
   async function loadStudents() {
     if (state.role !== 'admin') return;
 
     const target = $('#studentTable');
 
-    target.innerHTML = '<p class="muted">Loading student records…</p>';
+    if (!target) return;
 
-    const [profilesResult, enrollmentsResult] = await Promise.all([
-      sb.from('profiles')
-        .select('id,email,display_name,created_at')
-        .order('created_at', { ascending: false }),
+    target.innerHTML =
+      '<p class="muted">Loading student records…</p>';
 
-      sb.from('enrollments')
-        .select('student_id,course_id,status')
-    ]);
+    const [profilesResult, enrollmentsResult] =
+      await Promise.all([
+        sb.from('profiles')
+          .select('id,email,display_name,created_at')
+          .order('created_at', { ascending: false }),
+
+        sb.from('enrollments')
+          .select('student_id,course_id,status')
+      ]);
 
     if (profilesResult.error) {
       target.textContent = profilesResult.error.message;
@@ -1038,17 +1288,24 @@
           <tbody>
             ${profiles.map(profile => `
               <tr>
-                <td>${esc(profile.display_name || 'Student')}</td>
+                <td>
+                  ${esc(profile.display_name || 'Student')}
+                </td>
+
                 <td>${esc(profile.email || '')}</td>
+
                 <td>
                   ${enrollments.filter(row =>
                     row.student_id === profile.id &&
                     row.status === 'active'
                   ).length}
                 </td>
+
                 <td>
                   ${profile.created_at
-                    ? new Date(profile.created_at).toLocaleDateString()
+                    ? new Date(
+                        profile.created_at
+                      ).toLocaleDateString()
                     : ''}
                 </td>
               </tr>
@@ -1058,247 +1315,331 @@
       : '<p class="muted">No student profiles have registered yet.</p>';
   }
 
+  // --------------------------------
   // SIGN IN
-  $('#authForm').addEventListener('submit', async event => {
-    event.preventDefault();
+  // --------------------------------
 
-    if (!sb) {
-      showMessage(
-        '#authMessage',
-        'Supabase is not configured. Check your project URL and publishable/anon key in config.js.',
-        true
-      );
-      return;
-    }
+  $('#authForm').addEventListener(
+    'submit',
+    async event => {
+      event.preventDefault();
 
-    const button = $('#signInBtn');
+      if (!sb) {
+        showMessage(
+          '#authMessage',
+          'Supabase is not configured. Check your project URL and publishable/anon key in config.js.',
+          true
+        );
+        return;
+      }
 
-    setBusy(button, true, 'Signing in…');
+      const button = $('#signInBtn');
 
-    const email = $('#authEmail').value.trim();
-    const password = $('#authPassword').value;
+      setBusy(button, true, 'Signing in…');
 
-    try {
-      const { data, error } = await sb.auth.signInWithPassword({
-        email,
-        password
-      });
+      const email = $('#authEmail').value.trim();
+      const password = $('#authPassword').value;
 
-      if (error) throw error;
+      try {
+        const { data, error } = await sb.auth
+          .signInWithPassword({
+            email,
+            password
+          });
 
-      state.user = data.user;
+        if (error) throw error;
 
-      await loadRemote();
-      showMessage('#authMessage', '');
-
-    } catch (error) {
-      showMessage('#authMessage', error.message, true);
-
-    } finally {
-      setBusy(button, false);
-    }
-  });
-
-  // STUDENT REGISTRATION
-  $('#signUpBtn').addEventListener('click', async () => {
-    if (!sb) {
-      showMessage(
-        '#authMessage',
-        'Supabase is not configured. Check config.js first.',
-        true
-      );
-      return;
-    }
-
-    const email = $('#authEmail').value.trim();
-    const password = $('#authPassword').value;
-
-    if (!email || password.length < 6) {
-      showMessage(
-        '#authMessage',
-        'Enter a valid email address and a password of at least 6 characters.',
-        true
-      );
-      return;
-    }
-
-    const button = $('#signUpBtn');
-
-    setBusy(button, true, 'Creating account…');
-
-    try {
-      const { data, error } = await sb.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            display_name: email.split('@')[0]
-          }
-        }
-      });
-
-      if (error) throw error;
-
-      if (data.session && data.user) {
         state.user = data.user;
 
         await loadRemote();
-        toast('Your student account is ready.');
 
-      } else {
+        showMessage('#authMessage', '');
+
+      } catch (error) {
         showMessage(
           '#authMessage',
-          'Your account was created, but Supabase has not started a session. Check Authentication → Sign In / Providers → Email and turn off Confirm email if you want immediate sign-in.'
+          error.message,
+          true
         );
+
+      } finally {
+        setBusy(button, false);
       }
-
-    } catch (error) {
-      showMessage('#authMessage', error.message, true);
-
-    } finally {
-      setBusy(button, false);
     }
-  });
+  );
 
-  // SIGN OUT
-  $('#signOutBtn').addEventListener('click', async () => {
-    if (sb) {
-      const { error } = await sb.auth.signOut();
+  // --------------------------------
+  // STUDENT REGISTRATION
+  // --------------------------------
 
-      if (error) {
-        toast(error.message);
+  $('#signUpBtn').addEventListener(
+    'click',
+    async () => {
+      if (!sb) {
+        showMessage(
+          '#authMessage',
+          'Supabase is not configured. Check config.js first.',
+          true
+        );
         return;
       }
+
+      const email = $('#authEmail').value.trim();
+      const password = $('#authPassword').value;
+
+      if (!email || password.length < 6) {
+        showMessage(
+          '#authMessage',
+          'Enter a valid email address and a password of at least 6 characters.',
+          true
+        );
+        return;
+      }
+
+      const button = $('#signUpBtn');
+
+      setBusy(button, true, 'Creating account…');
+
+      try {
+        const { data, error } = await sb.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              display_name: email.split('@')[0]
+            }
+          }
+        });
+
+        if (error) throw error;
+
+        if (data.session && data.user) {
+          state.user = data.user;
+
+          await loadRemote();
+
+          toast('Your student account is ready.');
+
+        } else {
+          showMessage(
+            '#authMessage',
+            'Your account was created, but Supabase has not started a session. Check Authentication → Sign In / Providers → Email and turn off Confirm email if you want immediate sign-in.'
+          );
+        }
+
+      } catch (error) {
+        showMessage(
+          '#authMessage',
+          error.message,
+          true
+        );
+
+      } finally {
+        setBusy(button, false);
+      }
     }
+  );
 
-    closeApp();
-  });
+  // --------------------------------
+  // SIGN OUT
+  // --------------------------------
 
-  $('#refreshBtn').addEventListener('click', refreshData);
+  $('#signOutBtn').addEventListener(
+    'click',
+    async () => {
+      if (sb) {
+        const { error } = await sb.auth.signOut();
 
+        if (error) {
+          toast(error.message);
+          return;
+        }
+      }
+
+      closeApp();
+    }
+  );
+
+  $('#refreshBtn').addEventListener(
+    'click',
+    refreshData
+  );
+
+  // --------------------------------
   // DASHBOARD NAVIGATION
-  $('#tabs').addEventListener('click', event => {
-    const button = event.target.closest('[data-tab]');
+  // --------------------------------
 
-    if (button) {
-      showTab(button.dataset.tab);
+  $('#tabs').addEventListener(
+    'click',
+    event => {
+      const button = event.target.closest('[data-tab]');
+
+      if (button) {
+        showTab(button.dataset.tab);
+      }
     }
-  });
+  );
 
+  // --------------------------------
   // OTHER BUTTONS
-  document.addEventListener('click', async event => {
-    const goto = event.target.closest('[data-goto]');
+  // --------------------------------
 
-    if (goto) {
-      showTab(goto.dataset.goto);
-      return;
-    }
+  document.addEventListener(
+    'click',
+    async event => {
+      const goto = event.target.closest('[data-goto]');
 
-    const filter = event.target.closest('[data-course-filter]');
+      if (goto) {
+        showTab(goto.dataset.goto);
+        return;
+      }
 
-    if (filter) {
-      state.filter = filter.dataset.courseFilter;
-
-      $$('.filter').forEach(button => {
-        button.classList.toggle('active', button === filter);
-      });
-
-      renderCatalogue();
-      return;
-    }
-
-    const enrolButton = event.target.closest('[data-enrol]');
-
-    if (enrolButton) {
-      await enrol(enrolButton.dataset.enrol);
-      return;
-    }
-
-    const openButton = event.target.closest('[data-open-course]');
-
-    if (openButton) {
-      await openCourse(openButton.dataset.openCourse);
-      return;
-    }
-
-    const editButton = event.target.closest('[data-edit-course]');
-
-    if (editButton && state.role === 'admin') {
-      await editCourse(editButton.dataset.editCourse);
-      return;
-    }
-
-    const lessonButton = event.target.closest('[data-lesson]');
-
-    if (lessonButton) {
-      await openLesson(
-        lessonButton.dataset.lesson,
-        lessonButton.dataset.course
+      const filter = event.target.closest(
+        '[data-course-filter]'
       );
-      return;
-    }
 
-    const completeButton = event.target.closest('#completeLessonBtn');
+      if (filter) {
+        state.filter = filter.dataset.courseFilter;
 
-    if (completeButton) {
-      await completeLesson(
-        completeButton.dataset.lesson,
-        completeButton.dataset.course
+        $$('.filter').forEach(button => {
+          button.classList.toggle(
+            'active',
+            button === filter
+          );
+        });
+
+        renderCatalogue();
+        return;
+      }
+
+      const enrolButton = event.target.closest(
+        '[data-enrol]'
       );
-      return;
-    }
 
-    if (event.target.closest('#backToLearning')) {
-      $('#lessonView').hidden = true;
-      $('#appPanel').hidden = false;
-      showTab('mycourses');
-    }
-  });
+      if (enrolButton) {
+        await enrol(enrolButton.dataset.enrol);
+        return;
+      }
 
+      const openButton = event.target.closest(
+        '[data-open-course]'
+      );
+
+      if (openButton) {
+        await openCourse(openButton.dataset.openCourse);
+        return;
+      }
+
+      const editButton = event.target.closest(
+        '[data-edit-course]'
+      );
+
+      if (editButton && state.role === 'admin') {
+        await editCourse(editButton.dataset.editCourse);
+        return;
+      }
+
+      const lessonButton = event.target.closest(
+        '[data-lesson]'
+      );
+
+      if (lessonButton) {
+        await openLesson(
+          lessonButton.dataset.lesson,
+          lessonButton.dataset.course
+        );
+        return;
+      }
+
+      const completeButton = event.target.closest(
+        '#completeLessonBtn'
+      );
+
+      if (completeButton) {
+        await completeLesson(
+          completeButton.dataset.lesson,
+          completeButton.dataset.course
+        );
+        return;
+      }
+
+      if (event.target.closest('#backToLearning')) {
+        $('#lessonView').hidden = true;
+        $('#appPanel').hidden = false;
+
+        showTab('mycourses');
+      }
+    }
+  );
+
+  // --------------------------------
   // CREATE COURSE
-  $('#courseForm').addEventListener('submit', async event => {
-    event.preventDefault();
+  // --------------------------------
 
-    if (state.role !== 'admin') return;
+  $('#courseForm').addEventListener(
+    'submit',
+    async event => {
+      event.preventDefault();
 
-    const form = event.currentTarget;
-    const fd = new FormData(form);
+      if (state.role !== 'admin') return;
 
-    const button = form.querySelector('button[type="submit"]');
+      const form = event.currentTarget;
+      const fd = new FormData(form);
 
-    setBusy(button, true, 'Creating…');
+      const button = form.querySelector(
+        'button[type="submit"]'
+      );
 
-    try {
-      const { error } = await sb.from('courses').insert({
-        title: String(fd.get('title')).trim(),
-        description: String(fd.get('description')).trim(),
-        access: String(fd.get('access')),
-        level: String(fd.get('level')),
-        category: String(fd.get('category') || 'General').trim() || 'General',
-        price: Number(fd.get('price') || 0),
-        published: fd.get('published') === 'on',
-        created_by: state.user.id
-      });
+      setBusy(button, true, 'Creating…');
 
-      if (error) throw error;
+      try {
+        const { error } = await sb
+          .from('courses')
+          .insert({
+            title: String(fd.get('title')).trim(),
+            description: String(
+              fd.get('description')
+            ).trim(),
+            access: String(fd.get('access')),
+            level: String(fd.get('level')),
+            category: String(
+              fd.get('category') || 'General'
+            ).trim() || 'General',
+            price: Number(fd.get('price') || 0),
+            published: fd.get('published') === 'on',
+            created_by: state.user.id
+          });
 
-      form.reset();
-      form.elements.price.value = '0';
+        if (error) throw error;
 
-      showMessage('#courseMessage', 'Course created successfully.');
+        form.reset();
+        form.elements.price.value = '0';
 
-      await loadRemote();
-      showTab('manage');
+        showMessage(
+          '#courseMessage',
+          'Course created successfully.'
+        );
 
-    } catch (error) {
-      showMessage('#courseMessage', error.message, true);
+        await loadRemote();
+        showTab('manage');
 
-    } finally {
-      setBusy(button, false);
+      } catch (error) {
+        showMessage(
+          '#courseMessage',
+          error.message,
+          true
+        );
+
+      } finally {
+        setBusy(button, false);
+      }
     }
-  });
+  );
 
+  // --------------------------------
   // INITIAL SETUP
+  // --------------------------------
+
   $('#year').textContent = new Date().getFullYear();
 
   $('#connectionStatus').textContent =
@@ -1310,26 +1651,32 @@
       'Add your Supabase project URL and publishable/anon key to config.js to connect the portal.'
     );
   } else {
-    sb.auth.getSession().then(async ({ data, error }) => {
-      if (error) {
-        showMessage('#authMessage', error.message, true);
-        return;
-      }
-
-      if (data.session?.user) {
-        state.user = data.session.user;
-
-        try {
-          await loadRemote();
-        } catch (err) {
+    sb.auth.getSession().then(
+      async ({ data, error }) => {
+        if (error) {
           showMessage(
             '#authMessage',
-            `Could not load your dashboard: ${err.message}`,
+            error.message,
             true
           );
+          return;
+        }
+
+        if (data.session?.user) {
+          state.user = data.session.user;
+
+          try {
+            await loadRemote();
+          } catch (err) {
+            showMessage(
+              '#authMessage',
+              `Could not load your dashboard: ${err.message}`,
+              true
+            );
+          }
         }
       }
-    });
+    );
   }
 
 })();
