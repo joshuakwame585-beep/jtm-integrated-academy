@@ -112,12 +112,17 @@ Deno.serve(async (req: Request) => {
       }, 200);
     }
 
-    // Record success, then grant course access. Repeated calls are safe.
+    // Save Paystack's payment timestamp (or verification time as a fallback), then grant course access.
+    const paidAt = typeof transaction.paid_at === 'string' && !Number.isNaN(Date.parse(transaction.paid_at))
+      ? new Date(transaction.paid_at).toISOString()
+      : new Date().toISOString();
+
     const { error: successError } = await admin
       .from('payments')
       .update({
         status: 'success',
         paystack_transaction_id: String(transaction.id),
+        paid_at: paidAt,
         updated_at: new Date().toISOString(),
       })
       .eq('id', payment.id);
